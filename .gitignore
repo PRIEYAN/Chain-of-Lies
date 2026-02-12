@@ -46,3 +46,6 @@ drizzle/
 # Temporary
 tmp/
 temp/
+
+# Local state (Replit, etc.)
+.local/
