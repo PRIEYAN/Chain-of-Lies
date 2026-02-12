@@ -1,37 +1,94 @@
-import { type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import type {
+  GamePhase,
+  GameState,
+  LedgerEntry,
+  Player,
+  Role,
+  TaskSubmission,
+  Vote,
+} from "@shared/schema";
+import { makeInitialState } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getState(): Promise<GameState>;
+  setPhase(phase: GamePhase): Promise<void>;
+  setPlayers(players: Player[]): Promise<void>;
+  addPlayer(player: Player): Promise<void>;
+  setRole(role: Role, isTamperer: boolean): Promise<void>;
+  setRound(round: number): Promise<void>;
+  setTimer(timer: number): Promise<void>;
+  addSubmission(submission: Omit<TaskSubmission, "id" | "submittedAt">): Promise<TaskSubmission>;
+  addVote(vote: Omit<Vote, "id" | "castAt">): Promise<Vote>;
+  getLedger(): Promise<LedgerEntry[]>;
+  setLedger(entries: LedgerEntry[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private state: GameState;
+  private ledger: LedgerEntry[];
 
   constructor() {
-    this.users = new Map();
+    this.state = makeInitialState();
+    this.ledger = [];
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getState(): Promise<GameState> {
+    return this.state;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async setPhase(phase: GamePhase): Promise<void> {
+    this.state = { ...this.state, phase };
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async setPlayers(players: Player[]): Promise<void> {
+    this.state = { ...this.state, players };
+  }
+
+  async addPlayer(player: Player): Promise<void> {
+    this.state = { ...this.state, players: [...this.state.players, player] };
+  }
+
+  async setRole(role: Role, isTamperer: boolean): Promise<void> {
+    this.state = { ...this.state, role, isTamperer };
+  }
+
+  async setRound(round: number): Promise<void> {
+    this.state = { ...this.state, round };
+  }
+
+  async setTimer(timer: number): Promise<void> {
+    this.state = { ...this.state, timer };
+  }
+
+  async addSubmission(
+    submission: Omit<TaskSubmission, "id" | "submittedAt">,
+  ): Promise<TaskSubmission> {
+    const full: TaskSubmission = {
+      ...submission,
+      id: randomUUID(),
+      submittedAt: new Date().toISOString(),
+    };
+    this.state = { ...this.state, submissions: [...this.state.submissions, full] };
+    return full;
+  }
+
+  async addVote(vote: Omit<Vote, "id" | "castAt">): Promise<Vote> {
+    const full: Vote = {
+      ...vote,
+      id: randomUUID(),
+      castAt: new Date().toISOString(),
+    };
+    this.state = { ...this.state, votes: [...this.state.votes, full] };
+    return full;
+  }
+
+  async getLedger(): Promise<LedgerEntry[]> {
+    return this.ledger;
+  }
+
+  async setLedger(entries: LedgerEntry[]): Promise<void> {
+    this.ledger = entries;
   }
 }
 
