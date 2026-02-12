@@ -1,0 +1,11 @@
+{
+  "name": "@tamper-hunt/indexer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Event indexer for Tamper Hunt blockchain events",
+  "scripts": {
+    "dev": "echo 'Indexer package - coming soon'",
+    "build": "echo 'Indexer package - coming soon'",
+    "start": "echo 'Indexer package - coming soon'"
+  }
+}

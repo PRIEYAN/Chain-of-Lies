@@ -1,0 +1,11 @@
+{
+  "name": "@tamper-hunt/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart contracts for Tamper Hunt game",
+  "scripts": {
+    "compile": "echo 'Contracts package - coming soon'",
+    "test": "echo 'Contracts package - coming soon'",
+    "deploy": "echo 'Contracts package - coming soon'"
+  }
+}
