@@ -1,23 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export function useKeyboard() {
-  const [keys, setKeys] = useState<Record<string, boolean>>({});
+  const keys = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) =>
-      setKeys((prev) => ({ ...prev, [e.key]: true }));
+    const down = (e: KeyboardEvent) => {
+      console.log("KEY DOWN:", e.key);
+      keys.current[e.key] = true;
+    };
 
-    const up = (e: KeyboardEvent) =>
-      setKeys((prev) => ({ ...prev, [e.key]: false }));
+    const up = (e: KeyboardEvent) => {
+      keys.current[e.key] = false;
+    };
 
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
+    document.addEventListener("keydown", down);
+    document.addEventListener("keyup", up);
 
     return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
+      document.removeEventListener("keydown", down);
+      document.removeEventListener("keyup", up);
     };
   }, []);
 
-  return { keys };
+  return keys;
 }
