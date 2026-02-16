@@ -3,23 +3,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Lock } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 
 interface CreatePartyFormProps {
-  onCreateParty: (name: string, adminPassword: string) => void;
+  onCreateParty: (name: string) => void;
   isLoading?: boolean;
 }
 
 export default function CreatePartyForm({ onCreateParty, isLoading }: CreatePartyFormProps) {
   const [partyName, setPartyName] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (partyName.trim() && adminPassword.trim()) {
-      onCreateParty(partyName.trim(), adminPassword.trim());
+    if (partyName.trim()) {
+      onCreateParty(partyName.trim());
       setPartyName("");
-      setAdminPassword("");
     }
   };
 
@@ -27,10 +25,10 @@ export default function CreatePartyForm({ onCreateParty, isLoading }: CreatePart
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Lock className="h-5 w-5 text-primary" />
-          Create New Party (Admin Only)
+          <Users className="h-5 w-5 text-primary" />
+          Create New Party
         </CardTitle>
-        <CardDescription>Start your own game lobby with admin access</CardDescription>
+        <CardDescription>Start your own game lobby</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -45,24 +43,9 @@ export default function CreatePartyForm({ onCreateParty, isLoading }: CreatePart
               className="bg-white/5 border-white/10"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="admin-password">Admin Password</Label>
-            <Input
-              id="admin-password"
-              type="password"
-              placeholder="Enter admin password..."
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              disabled={isLoading}
-              className="bg-white/5 border-white/10"
-            />
-            <p className="text-xs text-muted-foreground">
-              For testing: use "admin123"
-            </p>
-          </div>
           <Button
             type="submit"
-            disabled={!partyName.trim() || !adminPassword.trim() || isLoading}
+            disabled={!partyName.trim() || isLoading}
             className="w-full bg-gradient-to-r from-primary to-accent"
           >
             {isLoading ? (

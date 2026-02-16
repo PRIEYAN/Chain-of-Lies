@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Lock, ArrowRight, Shield, Skull } from "lucide-react";
-import type { Role } from "@shared/schema";
+import type { Role } from "@tamper-hunt/types";
 import { useSetPhase, useGameState } from "@/hooks/use-game";
 import { useToast } from "@/hooks/use-toast";
 import { useGameSocket } from "@/hooks/use-websocket";

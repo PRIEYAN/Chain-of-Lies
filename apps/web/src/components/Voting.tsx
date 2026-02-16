@@ -14,7 +14,7 @@ import { CheckCircle2, Vote as VoteIcon, ArrowRight } from "lucide-react";
 import { useLobbyPlayers, useSetPhase } from "@/hooks/use-game";
 import { useGameSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
-import type { Player } from "@shared/schema";
+import type { Player } from "@tamper-hunt/types";
 import { cn } from "@/lib/utils";
 
 function mockPlayers(): Player[] {

@@ -16,7 +16,7 @@ import { useLedger, useSetPhase } from "@/hooks/use-game";
 import { useGameSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { LedgerEntry } from "@shared/schema";
+import type { LedgerEntry } from "@tamper-hunt/types";
 
 type ChatMsg = { id: string; playerId: string; username: string; message: string; at: string };
 
@@ -83,12 +83,13 @@ export default function EmergencyMeeting() {
     const offLedger = on("ledgerUpdated", (items) => {
       // Replace mock, not merging: keep predictable
       // eslint-disable-next-line no-console
-      console.log("[ws] ledgerUpdated", items?.length);
+      console.log("[ws] ledgerUpdated", items?.entries?.length);
     });
-    const offChat = on("chatMessage", (m) => setChat((prev) => [...prev, m]));
+    // TODO: chatMessage is not defined in wsServerMessages, needs to be added to the websocket types
+    // const offChat = on("chatMessage", (m) => setChat((prev) => [...prev, m]));
     return () => {
       offLedger?.();
-      offChat?.();
+      // offChat?.();
     };
   }, [on]);
 
@@ -262,6 +263,7 @@ export default function EmergencyMeeting() {
                           if (!msg) return;
 
                           const payload = { message: msg, at: new Date().toISOString() };
+                          // TODO: chatMessage needs to be added to wsClientMessages
                           emit("chatMessage", payload);
 
                           // optimistic add

@@ -37,15 +37,16 @@ class MockSocket {
           console.log("[MockSocket] Validating admin password...");
           if (data.adminPassword === "admin123") {
             const partyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const userId = `user-${Date.now()}`;
             console.log("[MockSocket] Party created with code:", partyCode);
             this.trigger("party_joined", {
               party: {
                 id: `party-${Date.now()}`,
                 partyCode: partyCode,
-                hostId: `user-${Date.now()}`,
+                hostId: userId,
                 hostName: data.name,
                 players: [
-                  { id: `user-${Date.now()}`, name: data.name, isHost: true },
+                  { id: userId, name: data.name, isHost: true },
                 ],
                 maxPlayers: 8,
               },
@@ -62,6 +63,7 @@ class MockSocket {
           // Mock party code validation
           console.log("[MockSocket] Validating party code...");
           if (data.partyCode && data.partyCode.length === 6) {
+            const userId = `user-${Date.now()}`;
             console.log("[MockSocket] Joining party:", data.partyCode);
             this.trigger("party_joined", {
               party: {
@@ -71,7 +73,7 @@ class MockSocket {
                 hostName: "Host Player",
                 players: [
                   { id: "host-1", name: "Host Player", isHost: true },
-                  { id: `user-${Date.now()}`, name: data.name, isHost: false },
+                  { id: userId, name: data.name, isHost: false },
                 ],
                 maxPlayers: 8,
               },
@@ -87,6 +89,38 @@ class MockSocket {
         case "start_game":
           console.log("[MockSocket] Starting game...");
           this.trigger("party_started", {});
+          break;
+        
+        case "join_game":
+          // Mock game join
+          console.log("[MockSocket] Joining game room:", data.partyCode);
+          const playerId = `player-${Date.now()}`;
+          const playerColor = `#${Math.floor(Math.random()*16777215).toString(16)}`;
+          
+          // Send game start with initial players
+          this.trigger("game_start", {
+            localPlayerId: playerId,
+            players: {
+              [playerId]: {
+                id: playerId,
+                name: data.playerName,
+                x: 700,
+                y: 400,
+                color: playerColor,
+                isHost: true,
+              },
+            },
+          });
+          break;
+        
+        case "player_move":
+          // Mock player movement - in real implementation, server would broadcast to all players
+          // For now, we just acknowledge the movement locally
+          console.log("[MockSocket] Player moved:", data.x, data.y);
+          break;
+        
+        case "leave_game":
+          console.log("[MockSocket] Leaving game...");
           break;
           
         default:

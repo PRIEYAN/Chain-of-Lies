@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import type { Role } from "@shared/schema";
+import type { Role } from "@tamper-hunt/types";
 import NeonShell from "@/components/NeonShell";
 import NeonTopbar from "@/components/NeonTopbar";
 import GlowCard from "@/components/GlowCard";
@@ -65,7 +65,9 @@ export default function GameBoard() {
       // keep lightweight: timer/round/phase could be driven by backend
       if (typeof state.timer === "number") setTimer(state.timer);
     });
-    return () => offState?.();
+    return () => {
+      offState?.();
+    };
   }, [on]);
 
   const submittedCount = Object.values(submitted).filter(Boolean).length;

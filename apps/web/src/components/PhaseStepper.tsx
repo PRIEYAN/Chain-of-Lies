@@ -1,4 +1,4 @@
-import type { GamePhase } from "@shared/schema";
+import type { GamePhase } from "@tamper-hunt/types";
 import { cn } from "@/lib/utils";
 
 const PHASES: GamePhase[] = ["LOBBY", "ROLE", "TASK", "AUDIT", "VOTING", "REVEAL"];

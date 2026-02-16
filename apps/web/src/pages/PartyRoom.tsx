@@ -1,48 +1,40 @@
-import { useEffect } from "react";
+/**
+ * Party Room Page
+ * 
+ * Waiting room where players gather before starting the game
+ */
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useLobby } from "@/contexts/LobbyContext";
+import { useGameStore } from "@/stores/useGameStore";
+import { useLobbySocket } from "@/hooks/useLobbySocket";
 import PlayerList from "@/components/lobby/PlayerList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Play, Copy, Check, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Play, Copy, Check } from "lucide-react";
 
 export default function PartyRoom() {
   const [, setLocation] = useLocation();
-  const {
-    user,
-    currentParty,
-    error,
-    leaveParty,
-    startGame,
-    clearError,
-  } = useLobby();
-
+  const { party, players, localPlayerId, phase } = useGameStore();
+  const { leaveParty, startGame } = useLobbySocket();
   const [copied, setCopied] = useState(false);
 
   // Redirect if not in a party
   useEffect(() => {
-    if (!currentParty) {
+    if (!party || phase === "LOBBY") {
       setLocation("/lobby");
+    } else if (phase === "GAME") {
+      setLocation("/multiplayer");
     }
-  }, [currentParty, setLocation]);
+  }, [party, phase, setLocation]);
 
-  // Navigate to game when started
-  useEffect(() => {
-    // Listen for party_started event
-    // This will be handled by the socket listener in LobbyContext
-    // For now, we'll just log it
-  }, []);
-
-  if (!currentParty || !user) {
+  if (!party || !localPlayerId) {
     return null;
   }
 
-  const isHost = currentParty.players.some(
-    (p) => p.id === user.id && p.isHost
-  );
+  const playersArray = Object.values(players);
+  const localPlayer = players[localPlayerId];
+  const isHost = localPlayer?.isHost || false;
 
   const handleLeaveParty = () => {
     leaveParty();
@@ -51,14 +43,10 @@ export default function PartyRoom() {
 
   const handleStartGame = () => {
     startGame();
-    // Navigate to game after a short delay
-    setTimeout(() => {
-      setLocation("/game");
-    }, 500);
   };
 
-  const handleCopyPartyId = () => {
-    navigator.clipboard.writeText(currentParty.partyCode);
+  const handleCopyPartyCode = () => {
+    navigator.clipboard.writeText(party.partyCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -76,11 +64,11 @@ export default function PartyRoom() {
             <ArrowLeft className="h-4 w-4" />
             Leave Party
           </Button>
-          
+
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-2">
-                {currentParty.hostName}'s Party
+                {party.hostName}'s Party
               </h1>
               <p className="text-muted-foreground">
                 Share the party code with players to join
@@ -93,24 +81,6 @@ export default function PartyRoom() {
             )}
           </div>
         </div>
-
-        {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>{error}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearError}
-                className="h-auto p-1"
-              >
-                Dismiss
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -126,13 +96,13 @@ export default function PartyRoom() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <code className="flex-1 px-4 py-3 bg-background border border-primary/30 rounded text-2xl font-mono font-bold text-center tracking-widest text-primary">
-                      {currentParty.partyCode}
+                      {party.partyCode}
                     </code>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleCopyPartyId}
+                    onClick={handleCopyPartyCode}
                     className="w-full gap-2"
                   >
                     {copied ? (
@@ -160,11 +130,11 @@ export default function PartyRoom() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Max Players</span>
-                  <span className="font-semibold">{currentParty.maxPlayers}</span>
+                  <span className="font-semibold">{party.maxPlayers}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Current Players</span>
-                  <span className="font-semibold">{currentParty.players.length}</span>
+                  <span className="font-semibold">{playersArray.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Status</span>
@@ -177,7 +147,7 @@ export default function PartyRoom() {
             {isHost && (
               <Button
                 onClick={handleStartGame}
-                disabled={currentParty.players.length < 2}
+                disabled={playersArray.length < 2}
                 className="w-full h-12 bg-gradient-to-r from-primary to-accent text-lg font-semibold"
               >
                 <Play className="h-5 w-5 mr-2" />
@@ -199,8 +169,12 @@ export default function PartyRoom() {
           {/* Right Column - Player List */}
           <div className="lg:col-span-2">
             <PlayerList
-              players={currentParty.players}
-              currentUserId={user.id}
+              players={playersArray.map(p => ({
+                id: p.id,
+                name: p.name,
+                isHost: p.isHost,
+              }))}
+              currentUserId={localPlayerId}
             />
           </div>
         </div>

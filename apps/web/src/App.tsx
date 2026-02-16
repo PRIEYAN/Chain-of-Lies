@@ -5,12 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GameProvider } from "@/contexts/GameContext";
 import { LobbyProvider } from "@/contexts/LobbyContext";
+import { MultiplayerGameProvider } from "@/contexts/MultiplayerGameContext";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/LandingPage";
 import LobbyPage from "@/pages/LobbyPage";
 import PartyRoom from "@/pages/PartyRoom";
 import RoleRevealPage from "@/pages/RoleRevealPage";
+import MultiplayerGamePage from "@/pages/MultiplayerGamePage";
 import GameEngine from "@/components/GameEngine";
 import HUD from "@/components/HUD";
 import TaskOverlay from "@/components/overlays/TaskOverlay";
@@ -39,6 +41,9 @@ function Router() {
       <Route path="/party" component={PartyRoom} />
       <Route path="/role" component={RoleRevealPage} />
       
+      {/* Multiplayer game route */}
+      <Route path="/multiplayer" component={MultiplayerGamePage} />
+      
       {/* All game phases now use the same GameView with overlays */}
       <Route path="/game" component={GameView} />
       <Route path="/task" component={GameView} />
@@ -56,10 +61,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <LobbyProvider>
-          <GameProvider>
-            <Toaster />
-            <Router />
-          </GameProvider>
+          <MultiplayerGameProvider>
+            <GameProvider>
+              <Toaster />
+              <Router />
+            </GameProvider>
+          </MultiplayerGameProvider>
         </LobbyProvider>
       </TooltipProvider>
     </QueryClientProvider>

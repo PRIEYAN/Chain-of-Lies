@@ -11,7 +11,7 @@ import { Shield, Skull, RotateCcw, ArrowLeftRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGameSocket } from "@/hooks/use-websocket";
 import { useSetPhase, useLobbyPlayers } from "@/hooks/use-game";
-import type { Player } from "@shared/schema";
+import type { Player } from "@tamper-hunt/types";
 
 function mockPlayers(): Player[] {
   return [
