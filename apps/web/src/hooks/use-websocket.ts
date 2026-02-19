@@ -70,7 +70,8 @@ export function useGameSocket() {
 
   const api = useMemo(() => {
     const emit = <K extends keyof typeof ws.send>(event: K, data: z.infer<(typeof ws.send)[K]>) => {
-      const validated = parseWithLogging(ws.send[event], data, `ws.send.${String(event)}`);
+      const schema = ws.send[event] as z.ZodTypeAny;
+      const validated = parseWithLogging(schema, data, `ws.send.${String(event)}`);
       const socket = socketRef.current;
       if (!socket) return;
       const mapped =
@@ -105,9 +106,10 @@ export function useGameSocket() {
                   ? EVENT_MAP.playersUpdate
                   : EVENT_MAP.chatMessageRecv;
 
+      const schema = ws.receive[event] as z.ZodTypeAny;
       handlersRef.current.set(mapped, (raw) => {
-        const validated = parseWithLogging(ws.receive[event], raw, `ws.receive.${String(event)}`);
-        handler(validated);
+        const validated = parseWithLogging(schema, raw, `ws.receive.${String(event)}`);
+        handler(validated as any);
       });
 
       return () => handlersRef.current.delete(mapped);

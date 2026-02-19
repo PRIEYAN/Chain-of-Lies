@@ -610,8 +610,7 @@ export default function GasFeeRunnerPopup({
             ctx.shadowBlur = 15;
             ctx.fillStyle = bgrad;
             ctx.beginPath();
-            (ctx as CanvasRenderingContext2D & { roundRect?: Function }).roundRect?.(bx, by, 180, 44, 8) ||
-                ctx.rect(bx, by, 180, 44);
+            ctx.rect(bx, by, 180, 44);
             ctx.fill();
             ctx.fillStyle = "#001a22";
             ctx.font = "bold 14px monospace";
@@ -655,8 +654,7 @@ export default function GasFeeRunnerPopup({
             ctx.shadowBlur = 12;
             ctx.fillStyle = bgrad;
             ctx.beginPath();
-            (ctx as CanvasRenderingContext2D & { roundRect?: Function }).roundRect?.(bx, by, 150, 44, 8) ||
-                ctx.rect(bx, by, 150, 44);
+            ctx.rect(bx, by, 150, 44);
             ctx.fill();
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 14px monospace";
@@ -712,8 +710,7 @@ export default function GasFeeRunnerPopup({
             ctx.shadowBlur = 15;
             ctx.fillStyle = bgrad;
             ctx.beginPath();
-            (ctx as CanvasRenderingContext2D & { roundRect?: Function }).roundRect?.(bx, by, 160, 44, 8) ||
-                ctx.rect(bx, by, 160, 44);
+            ctx.rect(bx, by, 160, 44);
             ctx.fill();
             ctx.fillStyle = "#001a10";
             ctx.font = "bold 13px monospace";

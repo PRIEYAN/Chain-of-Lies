@@ -20,6 +20,7 @@ import {
 import BrokenSequencePopup from "./tasks/task1";
 import BlockBouncePopup from "./tasks/task2";
 import GasFeeRunnerPopup from "./tasks/task3";
+import MemoryMinerPopup from "./tasks/task4";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -66,6 +67,7 @@ export default function MultiplayerGameCanvas() {
   const [showPuzzle, setShowPuzzle] = useState(false);
   const [showBounce, setShowBounce] = useState(false);
   const [showGasFee, setShowGasFee] = useState(false);
+  const [showMiner, setShowMiner] = useState(false);
 
   const eWasPressed = useRef(false);
 
@@ -84,6 +86,7 @@ export default function MultiplayerGameCanvas() {
         setShowPuzzle(false);
         setShowBounce(false);
         setShowGasFee(false);
+        setShowMiner(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -98,7 +101,7 @@ export default function MultiplayerGameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner;
 
     // -------- LOCAL PLAYER MOVEMENT --------
     if (localPlayerData && !isAnyTaskOpen) {
@@ -196,6 +199,8 @@ export default function MultiplayerGameCanvas() {
           setShowBounce(true);
         } else if (nearTaskIndex === 2) {
           setShowGasFee(true);
+        } else if (nearTaskIndex === 3) {
+          setShowMiner(true);
         }
       }
       eWasPressed.current = ePressed;
@@ -321,7 +326,7 @@ export default function MultiplayerGameCanvas() {
     // 8. Restore context state
     ctx.restore();
 
-  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee]);
+  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner]);
 
   // Start game loop
   useGameLoop(update);
@@ -352,6 +357,11 @@ export default function MultiplayerGameCanvas() {
         <GasFeeRunnerPopup
           isOpen={showGasFee}
           onClose={() => setShowGasFee(false)}
+        />
+
+        <MemoryMinerPopup
+          isOpen={showMiner}
+          onClose={() => setShowMiner(false)}
         />
       </div>
 

@@ -12,6 +12,7 @@ import {
 import BrokenSequencePopup from "./tasks/task1";
 import BlockBouncePopup from "./tasks/task2";
 import GasFeeRunnerPopup from "./tasks/task3";
+import MemoryMinerPopup from "./tasks/task4";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -55,6 +56,8 @@ export default function GameCanvas() {
   const [showBounce, setShowBounce] = useState(false);
   // Task 3 (Navigation zone, index 2) popup state
   const [showGasFee, setShowGasFee] = useState(false);
+  // Task 4 (Shields zone, index 2) popup state
+  const [showMiner, setShowMiner] = useState(false);
 
   // Track which task zone the player is near (for E-key trigger)
   const nearTaskIndexRef = useRef<number | null>(null);
@@ -74,6 +77,7 @@ export default function GameCanvas() {
         setShowPuzzle(false);
         setShowBounce(false);
         setShowGasFee(false);
+        setShowMiner(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -86,7 +90,7 @@ export default function GameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner;
 
     // -------- MOVEMENT (blocked while a task is open) --------
     if (!isAnyTaskOpen) {
@@ -143,6 +147,10 @@ export default function GameCanvas() {
       // Task zone 2 = Navigation → Task 3
       else if (nearTaskIndex === 2) {
         setShowGasFee(true);
+      }
+      // Task zone 3 = Navigation → Task 3
+      else if (nearTaskIndex === 3) {
+        setShowMiner(true);
       }
     }
     eWasPressed.current = ePressed;
@@ -217,7 +225,7 @@ export default function GameCanvas() {
     }
 
     ctx.restore();
-  }, [keys, showPuzzle, showBounce, showGasFee]);
+  }, [keys, showPuzzle, showBounce, showGasFee, showMiner]);
 
   useGameLoop(update);
 
@@ -246,6 +254,11 @@ export default function GameCanvas() {
       <GasFeeRunnerPopup
         isOpen={showGasFee}
         onClose={() => setShowGasFee(false)}
+      />
+
+      <MemoryMinerPopup
+        isOpen={showMiner}
+        onClose={() => setShowMiner(false)}
       />
 
       <div className="text-sm text-muted-foreground">
