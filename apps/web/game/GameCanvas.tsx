@@ -16,6 +16,7 @@ import MemoryMinerPopup from "./tasks/task4";
 import BlockCatcherPopup from "./tasks/task5";
 import SmartContractQuickFixPopup from "./tasks/task6";
 import ColourPredictionSpinnerPopup from "./tasks/task7";
+import ColorSpinPopup from "./tasks/task8";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -67,6 +68,8 @@ export default function GameCanvas() {
   const [showFix, setShowFix] = useState(false);
   // Task 7 (Storage zone, index 6) popup state
   const [showSpinner, setShowSpinner] = useState(false);
+  // Task 8 (Electrical zone, index 7) popup state
+  const [showColorSpin, setShowColorSpin] = useState(false);
 
   // Track which task zone the player is near (for E-key trigger)
   const nearTaskIndexRef = useRef<number | null>(null);
@@ -90,6 +93,7 @@ export default function GameCanvas() {
         setShowCatcher(false);
         setShowFix(false);
         setShowSpinner(false);
+        setShowColorSpin(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -102,7 +106,7 @@ export default function GameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin;
 
     // -------- MOVEMENT (blocked while a task is open) --------
     if (!isAnyTaskOpen) {
@@ -175,6 +179,10 @@ export default function GameCanvas() {
       // Task zone 6 = Storage → Task 7
       else if (nearTaskIndex === 6) {
         setShowSpinner(true);
+      }
+      // Task zone 7 = Electrical → Task 8
+      else if (nearTaskIndex === 7) {
+        setShowColorSpin(true);
       }
     }
     eWasPressed.current = ePressed;
@@ -249,7 +257,7 @@ export default function GameCanvas() {
     }
 
     ctx.restore();
-  }, [keys, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner]);
+  }, [keys, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin]);
 
   useGameLoop(update);
 
@@ -298,6 +306,11 @@ export default function GameCanvas() {
       <ColourPredictionSpinnerPopup
         isOpen={showSpinner}
         onClose={() => setShowSpinner(false)}
+      />
+
+      <ColorSpinPopup
+        isOpen={showColorSpin}
+        onClose={() => setShowColorSpin(false)}
       />
 
       <div className="text-sm text-muted-foreground">
