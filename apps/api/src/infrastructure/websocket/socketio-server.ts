@@ -29,6 +29,8 @@ interface Party {
 // In-memory storage (replace with database in production)
 const parties: Map<string, Party> = new Map();
 const socketToParty: Map<string, string> = new Map();
+const lastBroadcast: Map<string, number> = new Map();
+const BROADCAST_THROTTLE = 33; // ~30fps
 
 // Helper to generate party code
 function generatePartyCode(): string {
@@ -70,8 +72,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 const player: Player = {
                     id: playerId,
                     name: data.name,
-                    x: 700,
-                    y: 400,
+                    x: 278,
+                    y: 264,
                     color: generateColor(),
                     isHost: true,
                 };
@@ -138,8 +140,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 const player: Player = {
                     id: playerId,
                     name: data.name,
-                    x: 700 + Math.random() * 100 - 50,
-                    y: 400 + Math.random() * 100 - 50,
+                    x: 278,
+                    y: 264,
                     color: generateColor(),
                     isHost: false,
                 };
@@ -167,6 +169,11 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 io.to(data.partyCode).emit("party_player_update", {
                     players: Object.values(targetParty.players),
                 });
+
+                // If game already started, automatically transition this player to game
+                if (targetParty.phase === "GAME") {
+                    socket.emit("game_started");
+                }
 
                 logger.info(`${data.name} joined party: ${data.partyCode}`);
             } catch (error) {
@@ -234,10 +241,18 @@ export function initializeSocketIO(httpServer: HTTPServer) {
             player.x = data.x;
             player.y = data.y;
 
-            // Broadcast to all players in the room
-            io.to(party.partyCode).emit("players_update", {
-                players: party.players,
-            });
+            // Throttle broadcasts to reduce network traffic
+            const now = Date.now();
+            const lastTime = lastBroadcast.get(party.partyCode) || 0;
+            
+            if (now - lastTime >= BROADCAST_THROTTLE) {
+                lastBroadcast.set(party.partyCode, now);
+                
+                // Broadcast to all players in the room
+                io.to(party.partyCode).emit("players_update", {
+                    players: party.players,
+                });
+            }
         });
 
         // Leave Game

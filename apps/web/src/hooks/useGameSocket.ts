@@ -16,7 +16,30 @@ export function useGameSocket() {
     // Game events
     const handlePlayersUpdate = (data: { players: Record<string, Player> }) => {
       console.log("[Game] Players update:", data);
-      setPlayers(data.players);
+      
+      const updatedPlayers: Record<string, Player> = {};
+      const currentTime = Date.now();
+      
+      Object.entries(data.players).forEach(([id, player]) => {
+        const existingPlayer = useGameStore.getState().players[id];
+        
+        // For remote players, set target position for interpolation
+        if (id !== localPlayerId) {
+          updatedPlayers[id] = {
+            ...player,
+            x: existingPlayer?.x ?? player.x,
+            y: existingPlayer?.y ?? player.y,
+            targetX: player.x,
+            targetY: player.y,
+            timestamp: currentTime,
+          };
+        } else {
+          // Keep local player as-is (already updated locally)
+          updatedPlayers[id] = existingPlayer || player;
+        }
+      });
+      
+      setPlayers(updatedPlayers);
     };
 
     const handlePlayerJoined = (data: { player: Player }) => {
@@ -40,7 +63,7 @@ export function useGameSocket() {
       socket.off("player_joined", handlePlayerJoined);
       socket.off("player_left", handlePlayerLeft);
     };
-  }, [setPlayers]);
+  }, [setPlayers, localPlayerId]);
 
   // Return socket actions
   return {

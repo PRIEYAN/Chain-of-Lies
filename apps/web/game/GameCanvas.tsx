@@ -76,10 +76,10 @@ export default function GameCanvas() {
   const eWasPressed = useRef(false);
 
   const player = useRef({
-    x: 700,
-    y: 400,
-    size: 18,
-    speed: 3,
+    x: 278,
+    y: 264,
+    size: 15,
+    speed: 0.7,
   });
 
   // ESC closes any open task

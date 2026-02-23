@@ -12,6 +12,9 @@ export interface Player {
     y: number;
     color: string;
     isHost: boolean;
+    targetX?: number;
+    targetY?: number;
+    timestamp?: number;
 }
 
 export interface Party {

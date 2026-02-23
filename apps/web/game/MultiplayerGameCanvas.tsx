@@ -80,8 +80,8 @@ export default function MultiplayerGameCanvas() {
   const eWasPressed = useRef(false);
 
   const localPlayer = useRef({
-    size: 18,
-    speed: 3,
+    size: 15,
+    speed: 0.7,
   });
 
   // Get local player data from store
@@ -280,12 +280,27 @@ export default function MultiplayerGameCanvas() {
     Object.values(players).forEach((player) => {
       const isLocal = player.id === localPlayerId;
 
+      let renderX = player.x;
+      let renderY = player.y;
+
+      // Interpolate remote players for smooth movement
+      if (!isLocal && player.targetX !== undefined && player.targetY !== undefined) {
+        const interpSpeed = 0.15;
+        renderX += (player.targetX - player.x) * interpSpeed;
+        renderY += (player.targetY - player.y) * interpSpeed;
+
+        // Update player position gradually
+        if (Math.abs(player.targetX - player.x) > 0.5 || Math.abs(player.targetY - player.y) > 0.5) {
+          updatePlayer(player.id, { x: renderX, y: renderY });
+        }
+      }
+
       // Player circle
       ctx.fillStyle = player.color;
       ctx.beginPath();
       ctx.arc(
-        player.x,
-        player.y,
+        renderX,
+        renderY,
         localPlayer.current.size,
         0,
         Math.PI * 2
@@ -298,8 +313,8 @@ export default function MultiplayerGameCanvas() {
         ctx.shadowColor = player.color;
         ctx.beginPath();
         ctx.arc(
-          player.x,
-          player.y,
+          renderX,
+          renderY,
           localPlayer.current.size,
           0,
           Math.PI * 2
@@ -319,15 +334,15 @@ export default function MultiplayerGameCanvas() {
       ctx.textAlign = "center";
       ctx.fillText(
         isLocal ? `${player.name} (You)` : player.name,
-        player.x,
-        player.y - localPlayer.current.size - 8
+        renderX,
+        renderY - localPlayer.current.size - 8
       );
 
       // Host badge
       if (player.isHost) {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "bold 10px 'IBM Plex Sans', sans-serif";
-        ctx.fillText("👑", player.x, player.y - localPlayer.current.size - 22);
+        ctx.fillText("👑", renderX, renderY - localPlayer.current.size - 22);
       }
     });
 
