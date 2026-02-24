@@ -305,13 +305,14 @@ export default function BlockCatcherPopup({
             try {
                 if (!completedTasks || !completedTasks[TASK_ID]) {
                     markTaskCompleted(TASK_ID);
-                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                    const pts = Math.min(20, Math.max(5, Math.round(finalScore / 100)));
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: pts });
                 }
             } catch (e) {
                 console.warn("task emit failed", e);
             }
         }
-    }, [displayState, completedTasks, localPlayerId, markTaskCompleted]);
+    }, [displayState, completedTasks, localPlayerId, markTaskCompleted, finalScore]);
 
     const gameLoop = useCallback((timestamp: number) => {
         const canvas = canvasRef.current;

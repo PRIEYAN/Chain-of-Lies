@@ -275,7 +275,8 @@ export default function BlockBouncePopup({
                     try {
                         if (!completedTasks || !completedTasks[TASK_ID]) {
                             markTaskCompleted(TASK_ID);
-                            socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                            const pts = Math.min(20, Math.max(5, Math.round(s.score / 100)));
+                            socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: pts });
                         }
                     } catch (e) {
                         console.warn("task emit failed", e);

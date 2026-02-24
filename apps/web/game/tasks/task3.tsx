@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type GamePhase = "start" | "playing" | "dead" | "won";
 
@@ -176,10 +178,11 @@ export default function GasFeeRunnerPopup({
     const [phase, setPhase] = useState<GamePhase>("start");
     const [hud, setHud] = useState({ score: 0, gas: 0, energy: 100, coins: 0 });
 
-    useEffect(() => {
-        if (isOpen) {
     const TASK_ID = "task3";
     const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
+
+    useEffect(() => {
+        if (isOpen) {
             stateRef.current = makeState();
             setPhase("start");
         }
@@ -237,7 +240,8 @@ export default function GasFeeRunnerPopup({
                 try {
                     if (!completedTasks || !completedTasks[TASK_ID]) {
                         markTaskCompleted(TASK_ID);
-                        socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                        const pts = Math.min(20, Math.max(5, Math.round(stateRef.current.score / 100)));
+                        socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: pts });
                     }
                 } catch (e) {
                     console.warn("task emit failed", e);

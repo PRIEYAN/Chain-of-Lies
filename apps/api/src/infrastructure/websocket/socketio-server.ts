@@ -10,6 +10,7 @@ import { logger } from "../logging/logger";
 import { gameService } from "../../modules/game/services/game.service";
 import { roomService } from "../../modules/room/services/room.service";
 import { taskService } from "../../modules/task/services/task.service";
+import { TaskModel } from "../../modules/task/models/task.model";
 import { meetingService } from "../../modules/meeting/services/meeting.service";
 import { voteService } from "../../modules/vote/services/vote.service";
 import { RoomModel } from "../../modules/room/models/room.model";
@@ -531,6 +532,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
                 const userId = (socket as any).data?.userId || socket.id;
                 const taskId = data.payload?.taskId || data.payload?.id || "unknown";
+                const points = data.payload?.points || data.points || 10;
 
                 // Get player position from party
                 const player = party.players[socket.id];
@@ -555,12 +557,20 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     taskId as any,
                     userId as any,
                     playerX,
-                    playerY
+                    playerY,
+                    points
                 );
 
                 // Fetch task and user info for richer update
                 try {
-                    const taskDoc = await taskService.getTask(taskId as any);
+                    // resolve task doc by id or name
+                    let taskDoc: any = null;
+                    try {
+                        if (Types.ObjectId.isValid(taskId)) taskDoc = await TaskModel.findById(taskId);
+                    } catch (e) { taskDoc = null; }
+                    if (!taskDoc && typeof taskId === 'string') {
+                        taskDoc = await TaskModel.findOne({ playerId: userId, name: taskId });
+                    }
                     const userDoc = await UserModel.findById(userId);
                     io.to(party.partyCode).emit("task_update", {
                         taskId,
@@ -645,16 +655,25 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     return;
                 }
 
+                const points = (data as any).points || 10;
                 const result = await taskService.completeTask(
                     data.taskId as any,
                     userId as any,
                     data.playerX || 0,
-                    data.playerY || 0
+                    data.playerY || 0,
+                    points
                 );
 
                 // Emit task update with player/task info
                 try {
-                    const taskDoc = await taskService.getTask(data.taskId as any);
+                    // resolve task doc by id or name
+                    let taskDoc: any = null;
+                    try {
+                        if (Types.ObjectId.isValid(data.taskId)) taskDoc = await TaskModel.findById(data.taskId);
+                    } catch (e) { taskDoc = null; }
+                    if (!taskDoc && typeof data.taskId === 'string') {
+                        taskDoc = await TaskModel.findOne({ playerId: userId, name: data.taskId });
+                    }
                     const userDoc = await UserModel.findById(userId);
                     io.to(party.partyCode).emit("task_update", {
                         taskId: data.taskId,

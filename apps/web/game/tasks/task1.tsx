@@ -66,7 +66,7 @@ export default function BrokenSequencePopup({
                 // Mark locally and notify server
                 try {
                     markTaskCompleted(TASK_ID);
-                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: 8 });
                 } catch (e) {
                     console.warn("task emit failed", e);
                 }

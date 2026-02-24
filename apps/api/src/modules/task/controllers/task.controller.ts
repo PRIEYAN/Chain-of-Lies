@@ -36,7 +36,7 @@ export class TaskController {
   async completeTask(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { taskId, playerX, playerY } = req.body;
+      const { taskId, playerX, playerY, points } = req.body;
 
       if (!authReq.userId) {
         res.status(401).json({ error: "Not authenticated" });
@@ -52,7 +52,8 @@ export class TaskController {
         taskId,
         authReq.userId as any,
         playerX || 0,
-        playerY || 0
+        playerY || 0,
+        points || 10
       );
 
       res.json(result);

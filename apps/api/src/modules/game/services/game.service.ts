@@ -164,6 +164,7 @@ export class GameService {
       playerId: Types.ObjectId;
       type: "CREW" | "IMPOSTER";
       name: string;
+      taskKey?: string;
       location: { x: number; y: number };
     }> = [];
 
@@ -176,6 +177,7 @@ export class GameService {
             playerId: player.userId as Types.ObjectId,
             type: "CREW",
             name: crewTasks[i],
+            taskKey: `task${i + 1}`,
             location: locations[i % locations.length],
           });
         }
@@ -187,6 +189,7 @@ export class GameService {
             playerId: player.userId as Types.ObjectId,
             type: "IMPOSTER",
             name: imposterTasks[i],
+            taskKey: `task${i + 1}`,
             location: locations[(i + 15) % locations.length],
           });
         }
@@ -202,7 +205,8 @@ export class GameService {
   async completeCrewTask(
     gameId: Types.ObjectId,
     playerId: Types.ObjectId,
-    taskId: Types.ObjectId
+    taskId: Types.ObjectId,
+    points: number = 10
   ): Promise<{ encryptedWord: string; shouldStartMeeting: boolean }> {
     const game = await GameModel.findById(gameId);
     if (!game) {
@@ -245,8 +249,9 @@ export class GameService {
         const requiredCompletions = aliveCrew.length;
 
         if (state.crewTasksCompleted >= requiredCompletions) {
-          // Encrypt word by 10%
-          state.encryptionState = encryptWord(state.encryptionState, 10);
+          // Encrypt word by provided percent (default 10%)
+          const pct = points && points > 0 ? points : 10;
+          state.encryptionState = encryptWord(state.encryptionState, pct);
           state.crewTasksCompleted = 0; // Reset counter
 
           // Update database
@@ -286,7 +291,8 @@ export class GameService {
   async completeImposterTask(
     gameId: Types.ObjectId,
     playerId: Types.ObjectId,
-    taskId: Types.ObjectId
+    taskId: Types.ObjectId,
+    points: number = 10
   ): Promise<{ encryptedWord: string; decryptedPercentage: number }> {
     const game = await GameModel.findById(gameId);
     if (!game) {
@@ -329,8 +335,9 @@ export class GameService {
     if (state) {
       state.imposterTasksCompleted += 1;
 
-      // Decrypt word by 10%
-      state.encryptionState = decryptWord(state.encryptionState, 10);
+      // Decrypt word by provided percent (default 10%)
+      const pct = points && points > 0 ? points : 10;
+      state.encryptionState = decryptWord(state.encryptionState, pct);
 
       // Update database
       game.encryptedWord = state.encryptionState.encryptedWord;

@@ -131,13 +131,14 @@ export default function SmartContractQuickFixPopup({
             try {
                 if (!completedTasks || !completedTasks[TASK_ID]) {
                     markTaskCompleted(TASK_ID);
-                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                    const pts = Math.min(20, Math.max(5, score * 5));
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: pts });
                 }
             } catch (e) {
                 console.warn("task emit failed", e);
             }
         }
-    }, [gameState, completedTasks, localPlayerId, markTaskCompleted]);
+    }, [gameState, completedTasks, localPlayerId, markTaskCompleted, score]);
 
     const startGame = () => {
         const s = [...QUESTIONS].sort(() => Math.random() - 0.5);

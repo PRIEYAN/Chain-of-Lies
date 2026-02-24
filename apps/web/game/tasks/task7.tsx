@@ -302,7 +302,7 @@ export default function ColourPredictionSpinnerPopup({
             try {
                 if (!completedTasks || !completedTasks[TASK_ID]) {
                     markTaskCompleted(TASK_ID);
-                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: pointsGained });
                 }
             } catch (e) {
                 console.warn("task emit failed", e);

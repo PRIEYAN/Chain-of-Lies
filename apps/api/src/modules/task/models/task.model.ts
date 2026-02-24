@@ -12,12 +12,14 @@ export interface ITask extends Document {
   playerId: Types.ObjectId;
   type: TaskType;
   name: string;
+  taskKey?: string;
   difficulty: number;
   location: {
     x: number;
     y: number;
   };
   completed: boolean;
+  points?: number;
   completedAt?: Date;
 }
 
@@ -43,6 +45,10 @@ const taskSchema = new Schema<ITask>(
       type: String,
       required: true,
     },
+    taskKey: {
+      type: String,
+      sparse: true,
+    },
     difficulty: {
       type: Number,
       default: 1,
@@ -54,6 +60,10 @@ const taskSchema = new Schema<ITask>(
     completed: {
       type: Boolean,
       default: false,
+    },
+    points: {
+      type: Number,
+      default: 0,
     },
     completedAt: Date,
   },

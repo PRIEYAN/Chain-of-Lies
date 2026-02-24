@@ -66,17 +66,39 @@ export class TaskService {
    * Complete a task
    */
   async completeTask(
-    taskId: Types.ObjectId,
+    taskIdOrName: Types.ObjectId | string,
     playerId: Types.ObjectId,
     playerX: number,
-    playerY: number
+    playerY: number,
+    points: number = 0
   ): Promise<{
     success: boolean;
     shouldStartMeeting?: boolean;
     encryptedWord?: string;
     decryptedPercentage?: number;
   }> {
-    const task = await TaskModel.findById(taskId);
+    // Resolve task by id, taskKey, or name
+    let task: ITask | null = null;
+
+    // First try as ObjectId
+    if (typeof taskIdOrName === "string" && Types.ObjectId.isValid(taskIdOrName)) {
+      try {
+        task = await TaskModel.findById(taskIdOrName);
+      } catch (e) {
+        task = null;
+      }
+    }
+
+    // If not found, try as taskKey (e.g., "task1", "task2")
+    if (!task && typeof taskIdOrName === "string") {
+      task = await TaskModel.findOne({ playerId, taskKey: taskIdOrName });
+    }
+
+    // Final fallback: try name match (shouldn't happen in normal flow)
+    if (!task && typeof taskIdOrName === "string") {
+      task = await TaskModel.findOne({ playerId, name: taskIdOrName });
+    }
+
     if (!task) {
       throw new Error("Task not found");
     }
@@ -90,7 +112,7 @@ export class TaskService {
     }
 
     // Verify proximity
-    const isNearby = await this.verifyTaskProximity(taskId, playerX, playerY);
+    const isNearby = await this.verifyTaskProximity(task._id, playerX, playerY);
     if (!isNearby) {
       throw new Error("Player not close enough to task");
     }
@@ -124,11 +146,15 @@ export class TaskService {
     }
 
     // Complete task based on type
+    // persist earned points on the task
+    task.points = points || 0;
+
     if (task.type === "CREW") {
       const result = await gameService.completeCrewTask(
         task.gameId,
         playerId,
-        taskId
+        task._id,
+        points
       );
 
       task.completed = true;
@@ -144,7 +170,8 @@ export class TaskService {
       const result = await gameService.completeImposterTask(
         task.gameId,
         playerId,
-        taskId
+        task._id,
+        points
       );
 
       task.completed = true;
