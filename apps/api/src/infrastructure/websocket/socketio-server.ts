@@ -151,9 +151,11 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
         // Join Party
         socket.on("join_party", (data: { partyCode: string; name: string }) => {
+            logger.info(`[join_party event] Socket ${socket.id} attempting to join party: ${data.partyCode} as ${data.name}`);
             try {
                 // Find party by code
                 let targetParty: Party | undefined;
+                logger.info(`[join_party] Looking for party with code: ${data.partyCode}, Available parties: ${Array.from(parties.values()).map(p => p.partyCode).join(", ")}`);
                 for (const party of parties.values()) {
                     if (party.partyCode === data.partyCode) {
                         targetParty = party;
@@ -162,11 +164,13 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 }
 
                 if (!targetParty) {
+                    logger.warn(`[join_party] Party not found for code: ${data.partyCode}`);
                     socket.emit("error", { message: "Party not found" });
                     return;
                 }
 
                 if (Object.keys(targetParty.players).length >= targetParty.maxPlayers) {
+                    logger.warn(`[join_party] Party ${targetParty.partyCode} is full`);
                     socket.emit("error", { message: "Party is full" });
                     return;
                 }
@@ -188,6 +192,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 socket.join(data.partyCode);
 
                 // Send party joined to the joining player
+                logger.info(`[join_party] Player ${data.name} (${socket.id}) successfully joined party ${data.partyCode}. Emitting party_joined event.`);
                 socket.emit("party_joined", {
                     party: {
                         id: targetParty.id,
@@ -437,26 +442,35 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         const role = roomPlayer.role || "CREWMATE";
                         const socketId = roomPlayer.socketId;
                         
-                        // Find socket by user ID
-                        const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                            (s: any) => s.data?.userId === roomPlayer.userId.toString()
-                        ) || socket;
+                        // Find socket by socketId (direct lookup)
+                        const playerSocket = io.sockets.sockets.get(socketId);
+                        if (!playerSocket) {
+                            logger.warn(`Socket not found for player ${socketId}`);
+                            continue;
+                        }
 
-                        playerSocket.emit("role_assigned", { role });
+                        playerSocket.emit("role_assigned", {
+                            role,
+                            encryptedWord: role === "CREWMATE" ? game.encryptedWord : undefined,
+                            secretWord: undefined, // Never send secret word to client
+                        });
 
-                        // Emit word to crewmates only
+                        // Emit word update to crewmates
                         if (role === "CREWMATE") {
                             playerSocket.emit("word_update", {
                                 encryptedWord: game.encryptedWord,
+                                decryptedPercentage: game.decryptedPercentage,
                             });
                         }
                     }
                 }
 
-                // Notify all players in the room
+                // Notify all players: transition to TASKS phase
                 io.to(party.partyCode).emit("game_started", {
                     gameId: game._id,
                     roomId: room._id,
+                    phase: "TASKS",
+                    round: game.round || 1,
                 });
 
                 logger.info(`Game started in party: ${party.partyCode}`);

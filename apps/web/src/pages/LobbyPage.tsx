@@ -17,11 +17,11 @@ export default function LobbyPage() {
   const { connected, phase, party } = useGameStore();
   const { createParty, joinParty } = useLobbySocket();
 
-  // Navigate to party room when joined
+  // Navigate to party room when joined, or to game when started
   useEffect(() => {
     if (phase === "PARTY" && party) {
       setLocation("/party");
-    } else if (phase === "GAME") {
+    } else if (phase === "TASKS" || phase === "MEETING" || phase === "VOTING" || phase === "ENDED") {
       setLocation("/multiplayer");
     }
   }, [phase, party, setLocation]);

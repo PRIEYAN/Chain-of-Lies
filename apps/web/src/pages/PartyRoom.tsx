@@ -23,7 +23,7 @@ export default function PartyRoom() {
   useEffect(() => {
     if (!party || phase === "LOBBY") {
       setLocation("/lobby");
-    } else if (phase === "GAME") {
+    } else if (phase === "TASKS" || phase === "MEETING" || phase === "VOTING" || phase === "ENDED") {
       setLocation("/multiplayer");
     }
   }, [party, phase, setLocation]);

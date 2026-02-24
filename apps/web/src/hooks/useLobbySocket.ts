@@ -78,9 +78,9 @@ export function useLobbySocket() {
             // This could be stored in a separate state if needed
         };
 
-        const handleGameStarted = () => {
-            console.log("[Lobby] Game started");
-            setPhase("GAME");
+        const handleGameStarted = (data?: { phase?: string; round?: number }) => {
+            console.log("[Lobby] Game started:", data);
+            setPhase(data?.phase === "TASKS" ? "TASKS" : "TASKS");
         };
 
         const handleError = (data: { message: string }) => {
@@ -112,9 +112,13 @@ export function useLobbySocket() {
     // Return socket actions
     return {
         createParty: (name: string) => {
+            console.log("[Lobby Action] Creating party:", name, "Connected:", socket.connected);
+            if (!socket.connected) socket.connect();
             socket.emit("create_party", { name });
         },
         joinParty: (partyCode: string, name: string) => {
+            console.log("[Lobby Action] Joining party:", { partyCode, name, connected: socket.connected });
+            if (!socket.connected) socket.connect();
             socket.emit("join_party", { partyCode, name });
         },
         leaveParty: () => {

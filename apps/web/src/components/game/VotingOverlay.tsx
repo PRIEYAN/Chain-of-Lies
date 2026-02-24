@@ -3,9 +3,9 @@ import { useGameStore } from "@/stores/useGameStore";
 import { socket } from "@/shared/socket";
 
 export default function VotingOverlay() {
-  const { voting, players, localPlayerId, setHasVoted, setSelectedPlayer } = useGameStore();
+  const { phase, voting, players, localPlayerId, setHasVoted, setSelectedPlayer } = useGameStore();
 
-  if (voting.results || voting === undefined) return null;
+  if (phase !== "VOTING") return null;
 
   const alivePlayers = Object.values(players).filter((p) => true); // TODO: filter by isAlive when available
 
