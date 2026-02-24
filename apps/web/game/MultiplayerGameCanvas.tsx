@@ -64,7 +64,7 @@ export default function MultiplayerGameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
 
-  const { players, localPlayerId, updatePlayer } = useGameStore();
+  const { players, localPlayerId, updatePlayer, phase, isAlive } = useGameStore();
   const { emitPlayerMove } = useGameSocket();
 
   // Task states
@@ -116,7 +116,8 @@ export default function MultiplayerGameCanvas() {
     const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin;
 
     // -------- LOCAL PLAYER MOVEMENT --------
-    if (localPlayerData && !isAnyTaskOpen) {
+    // Allow movement only during TASKS phase and if player is alive
+    if (localPlayerData && !isAnyTaskOpen && phase === "TASKS" && isAlive) {
       let nextX = localPlayerData.x;
       let nextY = localPlayerData.y;
 

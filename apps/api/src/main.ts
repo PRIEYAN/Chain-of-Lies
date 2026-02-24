@@ -11,6 +11,14 @@ import { registerVotingRoutes } from "./domains/voting/routes";
 import { registerSubmissionRoutes } from "./domains/submissions/routes";
 import { logger } from "./infrastructure/logging/logger";
 import { errorHandler } from "./infrastructure/http/middleware/error-handler";
+import { connectMongoDB } from "./infrastructure/database/mongodb";
+import { authRoutes } from "./modules/auth/routes/auth.routes";
+import { roomRoutes } from "./modules/room/routes/room.routes";
+import { gameRoutes } from "./modules/game/routes/game.routes";
+import { wordbankRoutes } from "./modules/game/routes/wordbank.routes";
+import { taskRoutes } from "./modules/task/routes/task.routes";
+import { meetingRoutes } from "./modules/meeting/routes/meeting.routes";
+import { voteRoutes } from "./modules/vote/routes/vote.routes";
 
 const app = express();
 const httpServer = createServer(app);
@@ -50,24 +58,52 @@ app.get("/api/health", (_req, res) => {
 
 // Initialize domain routes
 async function initializeRoutes() {
+  // Legacy domain routes
   registerGameRoutes(app);
   registerVotingRoutes(app);
   registerSubmissionRoutes(app);
+  
+  // New module routes
+  app.use("/api/auth", authRoutes);
+  app.use("/api/room", roomRoutes);
+  app.use("/api/game", gameRoutes);
+  app.use("/api/wordbanks", wordbankRoutes);
+  app.use("/api/task", taskRoutes);
+  app.use("/api/meeting", meetingRoutes);
+  app.use("/api/vote", voteRoutes);
 }
 
 // Initialize server
 async function bootstrap() {
+  console.log("🚀 Starting Chain of Lies API Server...");
+  console.log("");
+  
+  // Connect MongoDB
+  await connectMongoDB();
+  console.log("");
+  
   await initializeRoutes();
 
   // Initialize Socket.IO server
+  console.log("🔧 Setting up Socket.IO...");
   const { initializeSocketIO } = await import("./infrastructure/websocket/socketio-server");
-  initializeSocketIO(httpServer);
+  const io = initializeSocketIO(httpServer);
+  
+  if (!io) {
+    throw new Error("Failed to initialize Socket.IO server");
+  }
+  
+  console.log("✅ Socket.IO initialized successfully");
 
   // Error handling middleware (must be last)
   app.use(errorHandler);
 
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(port, () => {
+    console.log("✅ API server started successfully!");
+    console.log(`🌐 Server running on: http://localhost:${port}`);
+    console.log(`❤️  Health check: http://localhost:${port}/api/health`);
+    console.log("");
     logger.info(`API server running on port ${port}`);
   });
 }

@@ -44,7 +44,8 @@ export function useGameSocket() {
   const handlersRef = useRef<Map<string, Handler>>(new Map());
 
   useEffect(() => {
-    const socket = io({
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+    const socket = io(SOCKET_URL, {
       path: "/socket.io",
       transports: ["websocket", "polling"],
       withCredentials: true,

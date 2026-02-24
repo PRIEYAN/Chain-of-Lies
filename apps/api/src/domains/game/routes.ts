@@ -7,10 +7,25 @@ import { gameService } from "./service";
 import { GAME_PHASES } from "@tamper-hunt/types";
 
 export function registerGameRoutes(app: Express) {
-  // Get full game state
+  // Get full game state (legacy route - returns empty state if no game active)
   app.get("/api/game/state", async (_req, res) => {
-    const state = await gameService.getState();
-    res.json(state);
+    try {
+      const state = await gameService.getState();
+      res.json(state);
+    } catch (error: any) {
+      // Return empty state if error (for backward compatibility)
+      console.warn("[Legacy Route] /api/game/state error:", error.message);
+      res.json({
+        phase: "LOBBY",
+        players: [],
+        role: "",
+        isTamperer: false,
+        round: 1,
+        timer: 0,
+        submissions: [],
+        votes: [],
+      });
+    }
   });
 
   // Get lobby players

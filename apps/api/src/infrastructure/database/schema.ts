@@ -1,43 +1,18 @@
 /**
- * Database schema definitions using Drizzle ORM
- * Add your table definitions here
+ * LEGACY: Database schema definitions using Drizzle ORM
+ * 
+ * ⚠️  THIS FILE IS NOT USED - Legacy code from original codebase
+ * 
+ * This project now uses MongoDB Atlas with Mongoose models.
+ * See: modules/*/models/*.model.ts
+ * 
+ * This file is kept for backward compatibility but is not imported anywhere.
  */
-import { pgTable, text, timestamp, boolean, integer, jsonb } from "drizzle-orm/pg-core";
+// Legacy code - not used
+// import { pgTable, text, timestamp, boolean, integer, jsonb } from "drizzle-orm/pg-core";
 
-export const games = pgTable("games", {
-  id: text("id").primaryKey(),
-  phase: text("phase").notNull().default("LOBBY"),
-  round: integer("round").notNull().default(1),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+// Legacy schema definitions - not used
+// All data is now stored in MongoDB via Mongoose models
 
-export const players = pgTable("players", {
-  id: text("id").primaryKey(),
-  gameId: text("game_id").references(() => games.id),
-  username: text("username").notNull(),
-  isHost: boolean("is_host").notNull().default(false),
-  isConnected: boolean("is_connected").notNull().default(true),
-  role: text("role"),
-  isTamperer: boolean("is_tamperer").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const submissions = pgTable("submissions", {
-  id: text("id").primaryKey(),
-  gameId: text("game_id").references(() => games.id),
-  playerId: text("player_id").references(() => players.id),
-  round: integer("round").notNull(),
-  role: text("role").notNull(),
-  payload: jsonb("payload"),
-  submittedAt: timestamp("submitted_at").defaultNow(),
-});
-
-export const votes = pgTable("votes", {
-  id: text("id").primaryKey(),
-  gameId: text("game_id").references(() => games.id),
-  voterId: text("voter_id").references(() => players.id),
-  targetPlayerId: text("target_player_id"),
-  round: integer("round").notNull(),
-  castAt: timestamp("cast_at").defaultNow(),
-});
+// This file is intentionally empty - MongoDB models are used instead
+export {};

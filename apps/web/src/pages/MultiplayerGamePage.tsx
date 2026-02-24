@@ -9,6 +9,12 @@ import { useGameStore } from "@/stores/useGameStore";
 import { useLobbySocket } from "@/hooks/useLobbySocket";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import MultiplayerGameCanvas from "../../game/MultiplayerGameCanvas";
+import RoleRevealModal from "@/components/game/RoleRevealModal";
+import SecretWordDisplay from "@/components/game/SecretWordDisplay";
+import ImposterTaskPanel from "@/components/game/ImposterTaskPanel";
+import MeetingOverlay from "@/components/game/MeetingOverlay";
+import VotingOverlay from "@/components/game/VotingOverlay";
+import GameEndScreen from "@/components/game/GameEndScreen";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -18,9 +24,9 @@ export default function MultiplayerGamePage() {
   const { leaveParty } = useLobbySocket();
   useGameSocket(); // Initialize game socket listeners
 
-  // Redirect if not in game
+  // Redirect if not in game (expecting to enter TASKS/MEETING/VOTING/ENDED)
   useEffect(() => {
-    if (!party || phase !== "GAME") {
+    if (!party || (phase !== "TASKS" && phase !== "MEETING" && phase !== "VOTING" && phase !== "ENDED")) {
       setLocation("/lobby");
     }
   }, [party, phase, setLocation]);
@@ -59,10 +65,17 @@ export default function MultiplayerGamePage() {
           </Button>
         </div>
 
-        {/* Game Canvas */}
+        {/* Game Canvas and Overlays */}
         <div className="flex justify-center">
           {localPlayerId ? (
-            <MultiplayerGameCanvas />
+            <div className="relative">
+              <MultiplayerGameCanvas />
+              {/* Overlays */}
+              <div className="absolute left-4 top-4">
+                {/* Secret word display */}
+                {/* @ts-ignore */}
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-[500px] w-[800px] border border-white/10 rounded-lg">
               <div className="text-center">
@@ -72,6 +85,16 @@ export default function MultiplayerGamePage() {
             </div>
           )}
         </div>
+
+        {/* Game UI Components */}
+        <RoleRevealModal />
+        <div className="absolute left-8 top-8 z-40">
+          <SecretWordDisplay />
+        </div>
+        <ImposterTaskPanel />
+        <MeetingOverlay />
+        <VotingOverlay />
+        <GameEndScreen />
 
         {/* Player List */}
         <div className="mt-6 max-w-2xl mx-auto">

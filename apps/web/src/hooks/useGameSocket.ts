@@ -8,7 +8,26 @@ import { socket } from "@/shared/socket";
 import { useGameStore, type Player } from "@/stores/useGameStore";
 
 export function useGameSocket() {
-  const { setPlayers, localPlayerId, partyCode } = useGameStore();
+  const {
+    setPlayers,
+    localPlayerId,
+    partyCode,
+    setPhase,
+    setRole,
+    setEncryptedWord,
+    setDecryptedPercentage,
+    setSecretWord,
+    startMeeting,
+    addMeetingMessage,
+    updateMeetingTimer,
+    endMeeting,
+    startVoting,
+    setHasVoted,
+    setSelectedPlayer,
+    setVotingResults,
+    setIsAlive,
+    endGame,
+  } = useGameStore();
   const lastEmitTime = useRef(0);
   const EMIT_THROTTLE = 50; // 20fps
 
@@ -42,6 +61,64 @@ export function useGameSocket() {
       setPlayers(updatedPlayers);
     };
 
+    const handleRoleAssigned = (data: { role: "CREWMATE" | "IMPOSTER"; encryptedWord?: string; secretWord?: string }) => {
+      console.log("[Game] role_assigned", data);
+      setRole(data.role);
+      if (data.encryptedWord) setEncryptedWord(data.encryptedWord);
+      if (data.secretWord) setSecretWord(data.secretWord);
+      // Phase likely moves to TASKS
+      setPhase("TASKS");
+    };
+
+    const handleWordUpdate = (data: { encryptedWord?: string; decryptedPercentage?: number }) => {
+      if (data.encryptedWord) setEncryptedWord(data.encryptedWord);
+      if (typeof data.decryptedPercentage === "number") setDecryptedPercentage(data.decryptedPercentage);
+    };
+
+    const handleTaskUpdate = (data: any) => {
+      // placeholder: front-end task sync may be implemented elsewhere
+      console.log("[Game] task_update", data);
+    };
+
+    const handleMeetingStarted = (data: { startedAt?: number; referenceSentences?: string[] }) => {
+      console.log("[Game] meeting_started", data);
+      startMeeting(data.startedAt);
+      if (data.referenceSentences) {
+        // store reference sentences
+        useGameStore.setState((s) => ({ meeting: { ...s.meeting, referenceSentences: data.referenceSentences } }));
+      }
+    };
+
+    const handleMeetingMessage = (data: { playerId: string; message: string }) => {
+      addMeetingMessage({ ...data });
+    };
+
+    const handleMeetingEnded = () => {
+      endMeeting();
+    };
+
+    const handleVotingStarted = (data: { candidates: Array<{ playerId: string; name: string }> }) => {
+      console.log("[Game] voting_started", data);
+      // startVoting expects candidates but we refactored; set voting candidates via state directly
+      useGameStore.setState((s) => ({ voting: { ...s.voting, hasVoted: false, selectedPlayerId: null }, phase: "VOTING" }));
+    };
+
+    const handleVotingResults = (data: { results: Record<string, number> }) => {
+      setVotingResults(data.results);
+    };
+
+    const handlePlayerEliminated = (data: { playerId: string }) => {
+      console.log("[Game] player_eliminated", data);
+      // mark player not alive
+      setIsAlive(false);
+      // remove from players list handled by players_update
+    };
+
+    const handleGameEnded = (data: { winner: "CREWMATE" | "IMPOSTER" }) => {
+      console.log("[Game] game_ended", data);
+      endGame(data.winner);
+    };
+
     const handlePlayerJoined = (data: { player: Player }) => {
       console.log("[Game] Player joined:", data);
       // Update will come through players_update
@@ -56,12 +133,32 @@ export function useGameSocket() {
     socket.on("players_update", handlePlayersUpdate);
     socket.on("player_joined", handlePlayerJoined);
     socket.on("player_left", handlePlayerLeft);
+    socket.on("role_assigned", handleRoleAssigned);
+    socket.on("word_update", handleWordUpdate);
+    socket.on("task_update", handleTaskUpdate);
+    socket.on("meeting_started", handleMeetingStarted);
+    socket.on("meeting_message", handleMeetingMessage);
+    socket.on("meeting_ended", handleMeetingEnded);
+    socket.on("voting_started", handleVotingStarted);
+    socket.on("voting_results", handleVotingResults);
+    socket.on("player_eliminated", handlePlayerEliminated);
+    socket.on("game_ended", handleGameEnded);
 
     // Cleanup
     return () => {
       socket.off("players_update", handlePlayersUpdate);
       socket.off("player_joined", handlePlayerJoined);
       socket.off("player_left", handlePlayerLeft);
+      socket.off("role_assigned", handleRoleAssigned);
+      socket.off("word_update", handleWordUpdate);
+      socket.off("task_update", handleTaskUpdate);
+      socket.off("meeting_started", handleMeetingStarted);
+      socket.off("meeting_message", handleMeetingMessage);
+      socket.off("meeting_ended", handleMeetingEnded);
+      socket.off("voting_started", handleVotingStarted);
+      socket.off("voting_results", handleVotingResults);
+      socket.off("player_eliminated", handlePlayerEliminated);
+      socket.off("game_ended", handleGameEnded);
     };
   }, [setPlayers, localPlayerId]);
 

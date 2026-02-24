@@ -14,6 +14,8 @@ export const socket: Socket = io(SOCKET_URL, {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 5,
+    timeout: 20000, // 20 second timeout
+    forceNew: false,
 });
 
 // Debug logging in development
@@ -32,5 +34,19 @@ if (import.meta.env.DEV) {
 
     socket.on("connect_error", (error) => {
         console.error("[Socket] Connection error:", error);
+        console.error("[Socket] Attempted URL:", SOCKET_URL);
+        console.error("[Socket] Error details:", {
+            message: error.message,
+            type: error.type,
+            description: error.description,
+        });
+    });
+    
+    socket.on("reconnect_attempt", (attemptNumber) => {
+        console.log(`[Socket] Reconnection attempt ${attemptNumber}...`);
+    });
+    
+    socket.on("reconnect_failed", () => {
+        console.error("[Socket] Reconnection failed. Check if backend is running on port 5000");
     });
 }

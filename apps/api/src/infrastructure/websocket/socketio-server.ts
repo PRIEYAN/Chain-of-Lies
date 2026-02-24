@@ -5,7 +5,16 @@
  */
 import { Server as HTTPServer } from "http";
 import { Server, Socket } from "socket.io";
+import { Types } from "mongoose";
 import { logger } from "../logging/logger";
+import { gameService } from "../../modules/game/services/game.service";
+import { roomService } from "../../modules/room/services/room.service";
+import { taskService } from "../../modules/task/services/task.service";
+import { meetingService } from "../../modules/meeting/services/meeting.service";
+import { voteService } from "../../modules/vote/services/vote.service";
+import { RoomModel } from "../../modules/room/models/room.model";
+import { UserModel } from "../../modules/auth/models/user.model";
+import { Types } from "mongoose";
 
 interface Player {
     id: string;
@@ -46,16 +55,42 @@ function generateColor(): string {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Helper to get or create user from socket/username
+async function getOrCreateUser(socketId: string, username: string): Promise<Types.ObjectId> {
+    // Use socket ID as wallet address for temporary users (prefixed to avoid conflicts)
+    const walletAddress = `socket_${socketId}`.toLowerCase();
+    
+    let user = await UserModel.findOne({ walletAddress });
+    if (!user) {
+        user = new UserModel({
+            walletAddress,
+            username: username || `Player_${socketId.substring(0, 8)}`,
+        });
+        await user.save();
+        logger.info(`Created temporary user for socket ${socketId}: ${user._id}`);
+    }
+    
+    return user._id as Types.ObjectId;
+}
+
 export function initializeSocketIO(httpServer: HTTPServer) {
+    console.log("🔧 Initializing Socket.IO server...");
+    
     const io = new Server(httpServer, {
         cors: {
             origin: process.env.CLIENT_URL || "http://localhost:3000",
             credentials: true,
+            methods: ["GET", "POST"],
         },
         path: "/socket.io",
+        transports: ["websocket", "polling"],
+        allowEIO3: true,
     });
+    
+    console.log(`✅ Socket.IO CORS configured for: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
 
     io.on("connection", (socket: Socket) => {
+        console.log(`🔌 New socket connection: ${socket.id}`);
         logger.info(`Socket connected: ${socket.id}`);
 
         // ========================================
@@ -182,6 +217,124 @@ export function initializeSocketIO(httpServer: HTTPServer) {
             }
         });
 
+        // Frontend: join_room (maps roomId to partyCode or creates party)
+        socket.on("join_room", async (data: { roomId: string; username: string }) => {
+            try {
+                // Try to find existing room by roomId (treat as partyCode)
+                let targetParty: Party | undefined;
+                for (const party of parties.values()) {
+                    if (party.partyCode === data.roomId.toUpperCase() || party.id === data.roomId) {
+                        targetParty = party;
+                        break;
+                    }
+                }
+
+                // If no party found, create one (for backward compatibility)
+                if (!targetParty) {
+                    const partyCode = data.roomId.length === 6 ? data.roomId.toUpperCase() : generatePartyCode();
+                    const partyId = `party-${Date.now()}`;
+                    const playerId = socket.id;
+
+                    const player: Player = {
+                        id: playerId,
+                        name: data.username,
+                        x: 278,
+                        y: 264,
+                        color: generateColor(),
+                        isHost: true,
+                    };
+
+                    targetParty = {
+                        id: partyId,
+                        partyCode,
+                        hostId: playerId,
+                        hostName: data.username,
+                        maxPlayers: 8,
+                        players: { [playerId]: player },
+                        phase: "LOBBY",
+                    };
+
+                    parties.set(partyId, targetParty);
+                    socketToParty.set(socket.id, partyId);
+                    socket.join(partyCode);
+
+                    socket.emit("party_joined", {
+                        party: {
+                            id: targetParty.id,
+                            partyCode: targetParty.partyCode,
+                            hostId: targetParty.hostId,
+                            hostName: targetParty.hostName,
+                            maxPlayers: targetParty.maxPlayers,
+                        },
+                        players: Object.values(targetParty.players),
+                        localPlayerId: playerId,
+                    });
+
+                    // Also emit player_joined for frontend compatibility
+                    io.to(partyCode).emit("player_joined", {
+                        id: playerId,
+                        username: data.username,
+                        isHost: true,
+                    });
+
+                    logger.info(`Party created via join_room: ${partyCode} by ${data.username}`);
+                    return;
+                }
+
+                // Join existing party
+                if (Object.keys(targetParty.players).length >= targetParty.maxPlayers) {
+                    socket.emit("error", { message: "Room is full" });
+                    return;
+                }
+
+                const playerId = socket.id;
+                const player: Player = {
+                    id: playerId,
+                    name: data.username,
+                    x: 278,
+                    y: 264,
+                    color: generateColor(),
+                    isHost: false,
+                };
+
+                targetParty.players[playerId] = player;
+                socketToParty.set(socket.id, targetParty.id);
+                socket.join(targetParty.partyCode);
+
+                socket.emit("party_joined", {
+                    party: {
+                        id: targetParty.id,
+                        partyCode: targetParty.partyCode,
+                        hostId: targetParty.hostId,
+                        hostName: targetParty.hostName,
+                        maxPlayers: targetParty.maxPlayers,
+                    },
+                    players: Object.values(targetParty.players),
+                    localPlayerId: playerId,
+                });
+
+                io.to(targetParty.partyCode).emit("party_player_update", {
+                    players: Object.values(targetParty.players),
+                });
+
+                // Emit player_joined for frontend compatibility
+                io.to(targetParty.partyCode).emit("player_joined", {
+                    id: playerId,
+                    username: data.username,
+                    isHost: false,
+                });
+
+                if (targetParty.phase === "GAME") {
+                    socket.emit("game_started");
+                }
+
+                logger.info(`${data.username} joined room via join_room: ${targetParty.partyCode}`);
+            } catch (error) {
+                logger.error("Error in join_room:", error);
+                socket.emit("error", { message: "Failed to join room" });
+            }
+        });
+
         // Leave Party
         socket.on("leave_party", () => {
             handlePlayerLeave(socket);
@@ -201,12 +354,18 @@ export function initializeSocketIO(httpServer: HTTPServer) {
         });
 
         // Start Game
-        socket.on("start_game", () => {
+        socket.on("start_game", async () => {
             const partyId = socketToParty.get(socket.id);
-            if (!partyId) return;
+            if (!partyId) {
+                socket.emit("error", { message: "Not in a party" });
+                return;
+            }
 
             const party = parties.get(partyId);
-            if (!party) return;
+            if (!party) {
+                socket.emit("error", { message: "Party not found" });
+                return;
+            }
 
             // Verify host
             if (party.hostId !== socket.id) {
@@ -214,12 +373,97 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 return;
             }
 
-            party.phase = "GAME";
+            try {
+                // Find or create room in database
+                let room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (!room) {
+                    // Create room from party - need to get/create user for host
+                    const hostPlayer = party.players[party.hostId];
+                    const hostUserId = await getOrCreateUser(party.hostId, hostPlayer.name);
+                    
+                    room = await roomService.createRoom(
+                        hostUserId,
+                        hostPlayer.name,
+                        party.maxPlayers,
+                        party.hostId
+                    );
+                    
+                    // Update socket data with user ID for host
+                    (socket as any).data = { ...((socket as any).data || {}), userId: hostUserId.toString() };
+                }
+                
+                // Add all players from party to room (if not already added)
+                for (const [socketId, player] of Object.entries(party.players)) {
+                    const userId = await getOrCreateUser(socketId, player.name);
+                    
+                    // Check if player already in room
+                    const existingPlayer = room.players.find(
+                        (p) => (p.userId as Types.ObjectId).toString() === userId.toString()
+                    );
+                    
+                    if (!existingPlayer) {
+                        // Add player to room
+                        room.players.push({
+                            userId,
+                            socketId,
+                            isAlive: true,
+                        });
+                    } else {
+                        // Update socket ID for existing player
+                        existingPlayer.socketId = socketId;
+                    }
+                    
+                    // Store user ID in socket data
+                    const playerSocket = io.sockets.sockets.get(socketId);
+                    if (playerSocket) {
+                        (playerSocket as any).data = { ...((playerSocket as any).data || {}), userId: userId.toString() };
+                    }
+                }
+                
+                // Save room with all players
+                await room.save();
+                logger.info(`Room ${room.roomCode} now has ${room.players.length} players`);
 
-            // Notify all players in the room
-            io.to(party.partyCode).emit("game_started");
+                // Start game
+                const game = await gameService.startGame(room._id);
 
-            logger.info(`Game started in party: ${party.partyCode}`);
+                // Update party phase
+                party.phase = "GAME";
+
+                // Emit role to each player
+                const roomDoc = await RoomModel.findById(room._id).populate("players.userId");
+                if (roomDoc) {
+                    for (const roomPlayer of roomDoc.players) {
+                        const role = roomPlayer.role || "CREWMATE";
+                        const socketId = roomPlayer.socketId;
+                        
+                        // Find socket by user ID
+                        const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                            (s: any) => s.data?.userId === roomPlayer.userId.toString()
+                        ) || socket;
+
+                        playerSocket.emit("role_assigned", { role });
+
+                        // Emit word to crewmates only
+                        if (role === "CREWMATE") {
+                            playerSocket.emit("word_update", {
+                                encryptedWord: game.encryptedWord,
+                            });
+                        }
+                    }
+                }
+
+                // Notify all players in the room
+                io.to(party.partyCode).emit("game_started", {
+                    gameId: game._id,
+                    roomId: room._id,
+                });
+
+                logger.info(`Game started in party: ${party.partyCode}`);
+            } catch (error: any) {
+                logger.error("Error starting game:", error);
+                socket.emit("error", { message: error.message });
+            }
         });
 
         // ========================================
@@ -255,6 +499,463 @@ export function initializeSocketIO(httpServer: HTTPServer) {
             }
         });
 
+        // Frontend: submit_task (maps to task_completed)
+        socket.on("submit_task", async (data: { round: number; role: string; payload: Record<string, any> }) => {
+            try {
+                const partyId = socketToParty.get(socket.id);
+                if (!partyId) {
+                    socket.emit("error", { message: "Not in a game" });
+                    return;
+                }
+
+                const party = parties.get(partyId);
+                if (!party || party.phase !== "GAME") {
+                    socket.emit("error", { message: "Game not active" });
+                    return;
+                }
+
+                const userId = (socket as any).data?.userId || socket.id;
+                const taskId = data.payload?.taskId || data.payload?.id || "unknown";
+
+                // Get player position from party
+                const player = party.players[socket.id];
+                const playerX = player?.x || 0;
+                const playerY = player?.y || 0;
+
+                // Find room and game
+                const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (!room) {
+                    socket.emit("error", { message: "Room not found" });
+                    return;
+                }
+
+                const game = await gameService.getInMemoryState(room._id);
+                if (!game) {
+                    socket.emit("error", { message: "Game not found" });
+                    return;
+                }
+
+                // Complete task using task service
+                const result = await taskService.completeTask(
+                    taskId as any,
+                    userId as any,
+                    playerX,
+                    playerY
+                );
+
+                io.to(party.partyCode).emit("task_update", {
+                    taskId,
+                    completed: true,
+                });
+
+                // Emit state update for frontend
+                io.to(party.partyCode).emit("state_updated", {
+                    phase: game.phase,
+                });
+
+                if (result.shouldStartMeeting) {
+                    await gameService.startMeeting(game.gameId);
+                    io.to(party.partyCode).emit("meeting_started", { duration: 60 });
+
+                    setTimeout(async () => {
+                        await gameService.endMeeting(game.gameId);
+                        io.to(party.partyCode).emit("meeting_ended");
+                        io.to(party.partyCode).emit("voting_started");
+                    }, 60000);
+                }
+
+                if (result.encryptedWord) {
+                    const roomDoc = await RoomModel.findById(room._id);
+                    if (roomDoc) {
+                        for (const player of roomDoc.players) {
+                            if (player.role === "CREWMATE") {
+                                const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                    (s: any) => s.data?.userId === player.userId.toString() || s.id === socket.id
+                                );
+                                if (playerSocket) {
+                                    playerSocket.emit("word_update", {
+                                        encryptedWord: result.encryptedWord,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const winCheck = await gameService.checkWinConditions(game.gameId);
+                if (winCheck.gameEnded) {
+                    io.to(party.partyCode).emit("game_ended", {
+                        winner: winCheck.winner,
+                    });
+                }
+            } catch (error: any) {
+                logger.error("Error in submit_task:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Task Completed
+        socket.on("task_completed", async (data: { taskId: string; playerX?: number; playerY?: number }) => {
+            try {
+                const partyId = socketToParty.get(socket.id);
+                if (!partyId) {
+                    socket.emit("error", { message: "Not in a game" });
+                    return;
+                }
+
+                const party = parties.get(partyId);
+                if (!party || party.phase !== "GAME") {
+                    socket.emit("error", { message: "Game not active" });
+                    return;
+                }
+
+                // Get user ID from socket (should be set during auth)
+                const userId = (socket as any).data?.userId;
+                if (!userId) {
+                    socket.emit("error", { message: "Not authenticated" });
+                    return;
+                }
+
+                const result = await taskService.completeTask(
+                    data.taskId as any,
+                    userId as any,
+                    data.playerX || 0,
+                    data.playerY || 0
+                );
+
+                // Emit task update
+                io.to(party.partyCode).emit("task_update", {
+                    taskId: data.taskId,
+                    completed: true,
+                });
+
+                // If meeting should start
+                if (result.shouldStartMeeting) {
+                    const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                    if (room) {
+                        const game = await gameService.getInMemoryState(room._id);
+                        if (game) {
+                            await gameService.startMeeting(game.gameId);
+                            io.to(party.partyCode).emit("meeting_started", { duration: 60 });
+
+                            // Auto-end meeting after 60 seconds
+                            setTimeout(async () => {
+                                await gameService.endMeeting(game.gameId);
+                                io.to(party.partyCode).emit("meeting_ended");
+                                io.to(party.partyCode).emit("voting_started");
+                            }, 60000);
+                        }
+                    }
+                }
+
+                // Emit word update if needed
+                if (result.encryptedWord) {
+                    const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                    if (room) {
+                        const roomDoc = await RoomModel.findById(room._id);
+                        if (roomDoc) {
+                            for (const player of roomDoc.players) {
+                                if (player.role === "CREWMATE") {
+                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                        (s: any) => s.data?.userId === player.userId.toString()
+                                    );
+                                    if (playerSocket) {
+                                        playerSocket.emit("word_update", {
+                                            encryptedWord: result.encryptedWord,
+                                        });
+                                    }
+                                } else if (player.role === "IMPOSTER" && result.decryptedPercentage !== undefined) {
+                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                        (s: any) => s.data?.userId === player.userId.toString()
+                                    );
+                                    if (playerSocket) {
+                                        playerSocket.emit("word_update", {
+                                            decryptedPercentage: result.decryptedPercentage,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Check win conditions
+                const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (room) {
+                    const game = await gameService.getInMemoryState(room._id);
+                    if (game) {
+                        const winCheck = await gameService.checkWinConditions(game.gameId);
+                        if (winCheck.gameEnded) {
+                            io.to(party.partyCode).emit("game_ended", {
+                                winner: winCheck.winner,
+                            });
+                        }
+                    }
+                }
+            } catch (error: any) {
+                logger.error("Error completing task:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Frontend: chat_message (maps to meeting_message)
+        socket.on("chat_message", async (data: { message: string; at: string }) => {
+            try {
+                const partyId = socketToParty.get(socket.id);
+                if (!partyId) {
+                    socket.emit("error", { message: "Not in a game" });
+                    return;
+                }
+
+                const party = parties.get(partyId);
+                if (!party || party.phase !== "GAME") {
+                    socket.emit("error", { message: "Game not active" });
+                    return;
+                }
+
+                const userId = (socket as any).data?.userId || socket.id;
+                const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (!room) {
+                    socket.emit("error", { message: "Room not found" });
+                    return;
+                }
+
+                const game = await gameService.getInMemoryState(room._id);
+                if (!game) {
+                    socket.emit("error", { message: "Game not found" });
+                    return;
+                }
+
+                const meetingMessage = await meetingService.sendMessage(
+                    game.gameId as any,
+                    userId as any,
+                    data.message
+                );
+
+                // Emit to all players in the game
+                io.to(party.partyCode).emit("chat_message", {
+                    playerId: userId,
+                    message: meetingMessage.message,
+                    timestamp: meetingMessage.createdAt.getTime(),
+                    at: data.at,
+                });
+            } catch (error: any) {
+                logger.error("Error in chat_message:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Meeting Message
+        socket.on("meeting_message", async (data: { gameId: string; message: string }) => {
+            try {
+                const userId = (socket as any).data?.userId;
+                if (!userId) {
+                    socket.emit("error", { message: "Not authenticated" });
+                    return;
+                }
+
+                const meetingMessage = await meetingService.sendMessage(
+                    data.gameId as any,
+                    userId as any,
+                    data.message
+                );
+
+                // Emit to all players in the game
+                const room = await RoomModel.findOne({ 
+                    "players.userId": userId 
+                });
+                if (room) {
+                    io.to(room.roomCode).emit("meeting_message", {
+                        playerId: userId,
+                        message: meetingMessage.message,
+                        timestamp: meetingMessage.createdAt.getTime(),
+                    });
+                }
+            } catch (error: any) {
+                logger.error("Error sending meeting message:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Frontend: cast_vote (maps to vote)
+        socket.on("cast_vote", async (data: { round: number; targetPlayerId: string | null }) => {
+            try {
+                const partyId = socketToParty.get(socket.id);
+                if (!partyId) {
+                    socket.emit("error", { message: "Not in a game" });
+                    return;
+                }
+
+                const party = parties.get(partyId);
+                if (!party || party.phase !== "GAME") {
+                    socket.emit("error", { message: "Game not active" });
+                    return;
+                }
+
+                const userId = (socket as any).data?.userId || socket.id;
+                const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (!room) {
+                    socket.emit("error", { message: "Room not found" });
+                    return;
+                }
+
+                const game = await gameService.getInMemoryState(room._id);
+                if (!game) {
+                    socket.emit("error", { message: "Game not found" });
+                    return;
+                }
+
+                const isSkip = !data.targetPlayerId;
+                await voteService.castVote(
+                    game.gameId as any,
+                    userId as any,
+                    data.targetPlayerId as any,
+                    isSkip
+                );
+
+                // Emit vote cast confirmation
+                socket.emit("voteCast", {
+                    voterId: userId,
+                });
+
+                // Check if all voted and tally
+                const gameDoc = await gameService.getGameByRoomId(room._id);
+                if (gameDoc) {
+                    const winCheck = await gameService.checkWinConditions(gameDoc._id);
+                    if (winCheck.gameEnded) {
+                        io.to(party.partyCode).emit("game_ended", {
+                            winner: winCheck.winner,
+                        });
+                    } else {
+                        const breakdown = await voteService.getVoteBreakdown(gameDoc._id);
+                        const roomDoc = await RoomModel.findById(room._id);
+                        if (roomDoc) {
+                            for (const player of roomDoc.players) {
+                                if (player.role === "IMPOSTER") {
+                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                        (s: any) => s.data?.userId === player.userId.toString() || s.id === socket.id
+                                    );
+                                    if (playerSocket) {
+                                        playerSocket.emit("voting_results", {
+                                            voteBreakdown: breakdown,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error: any) {
+                logger.error("Error in cast_vote:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Vote
+        socket.on("vote", async (data: { gameId: string; votedFor?: string; isSkip?: boolean }) => {
+            try {
+                const userId = (socket as any).data?.userId;
+                if (!userId) {
+                    socket.emit("error", { message: "Not authenticated" });
+                    return;
+                }
+
+                await voteService.castVote(
+                    data.gameId as any,
+                    userId as any,
+                    data.votedFor as any,
+                    data.isSkip || false
+                );
+
+                // Check if all voted (tally happens in service)
+                const room = await RoomModel.findOne({ 
+                    "players.userId": userId 
+                });
+                if (room) {
+                    const gameDoc = await gameService.getGameByRoomId(room._id);
+                    if (gameDoc) {
+                        // Tally will be called automatically when all voted
+                        // Emit results after tally
+                        const winCheck = await gameService.checkWinConditions(gameDoc._id);
+                        if (winCheck.gameEnded) {
+                            io.to(room.roomCode).emit("game_ended", {
+                                winner: winCheck.winner,
+                            });
+                        } else {
+                            // Get vote breakdown for imposter
+                            const breakdown = await voteService.getVoteBreakdown(gameDoc._id);
+                            const roomDoc = await RoomModel.findById(room._id);
+                            if (roomDoc) {
+                                for (const player of roomDoc.players) {
+                                    if (player.role === "IMPOSTER") {
+                                        const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                            (s: any) => s.data?.userId === player.userId.toString()
+                                        );
+                                        if (playerSocket) {
+                                            playerSocket.emit("voting_results", {
+                                                voteBreakdown: breakdown,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error: any) {
+                logger.error("Error casting vote:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+        // Frontend: call_emergency (starts emergency meeting)
+        socket.on("call_emergency", async (data: { reason?: string }) => {
+            try {
+                const partyId = socketToParty.get(socket.id);
+                if (!partyId) {
+                    socket.emit("error", { message: "Not in a game" });
+                    return;
+                }
+
+                const party = parties.get(partyId);
+                if (!party || party.phase !== "GAME") {
+                    socket.emit("error", { message: "Game not active" });
+                    return;
+                }
+
+                const room = await RoomModel.findOne({ roomCode: party.partyCode });
+                if (!room) {
+                    socket.emit("error", { message: "Room not found" });
+                    return;
+                }
+
+                const game = await gameService.getInMemoryState(room._id);
+                if (!game) {
+                    socket.emit("error", { message: "Game not found" });
+                    return;
+                }
+
+                // Start emergency meeting
+                await gameService.startMeeting(game.gameId);
+                io.to(party.partyCode).emit("meeting_started", { 
+                    duration: 60,
+                    reason: data.reason || "Emergency meeting called",
+                });
+
+                // Auto-end meeting after 60 seconds
+                setTimeout(async () => {
+                    await gameService.endMeeting(game.gameId);
+                    io.to(party.partyCode).emit("meeting_ended");
+                    io.to(party.partyCode).emit("voting_started");
+                }, 60000);
+
+                logger.info(`Emergency meeting called in party: ${party.partyCode}`);
+            } catch (error: any) {
+                logger.error("Error in call_emergency:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
         // Leave Game
         socket.on("leave_game", () => {
             handlePlayerLeave(socket);
@@ -278,9 +979,16 @@ export function initializeSocketIO(httpServer: HTTPServer) {
         const party = parties.get(partyId);
         if (!party) return;
 
+        const playerId = socket.id;
+
         // Remove player
         delete party.players[socket.id];
         socketToParty.delete(socket.id);
+
+        // Emit player_left for frontend compatibility
+        io.to(party.partyCode).emit("player_left", {
+            playerId: playerId,
+        });
 
         // If party is empty, delete it
         if (Object.keys(party.players).length === 0) {
@@ -305,11 +1013,14 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
         if (party.phase === "GAME") {
             io.to(party.partyCode).emit("players_update", {
-                players: party.players,
+                players: Object.values(party.players),
             });
         }
     }
 
     logger.info("Socket.IO server initialized");
+    console.log("✅ Socket.IO server ready");
+    console.log(`🔌 WebSocket endpoint: ws://localhost:${process.env.PORT || 5000}/socket.io`);
+    console.log("");
     return io;
 }
