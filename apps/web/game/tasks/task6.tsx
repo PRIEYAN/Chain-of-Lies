@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type GameState = "idle" | "playing" | "feedback" | "gameOver";
 
@@ -70,6 +72,8 @@ export default function SmartContractQuickFixPopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task6";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const [gameState, setGameState] = useState<GameState>("idle");
     const [questionIndex, setQuestionIndex] = useState(0);
     const [score, setScore] = useState(0);
@@ -120,6 +124,20 @@ export default function SmartContractQuickFixPopup({
     }, [gameState, questionIndex]);
 
     useEffect(() => () => stopTimer(), []);
+
+    // mark completion when quiz ends
+    useEffect(() => {
+        if (gameState === "gameOver") {
+            try {
+                if (!completedTasks || !completedTasks[TASK_ID]) {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                }
+            } catch (e) {
+                console.warn("task emit failed", e);
+            }
+        }
+    }, [gameState, completedTasks, localPlayerId, markTaskCompleted]);
 
     const startGame = () => {
         const s = [...QUESTIONS].sort(() => Math.random() - 0.5);

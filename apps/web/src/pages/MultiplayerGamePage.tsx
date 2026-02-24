@@ -20,7 +20,7 @@ import { ArrowLeft } from "lucide-react";
 
 export default function MultiplayerGamePage() {
   const [, setLocation] = useLocation();
-  const { party, players, localPlayerId, phase } = useGameStore();
+  const { party, players, localPlayerId, phase, imposterId, lastTaskMessage } = useGameStore();
   const { leaveParty } = useLobbySocket();
   useGameSocket(); // Initialize game socket listeners
 
@@ -45,6 +45,14 @@ export default function MultiplayerGamePage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Task completion message */}
+        {lastTaskMessage && (
+          <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="bg-white/8 backdrop-blur-md border border-white/10 text-sm px-4 py-2 rounded-lg">
+              {lastTaskMessage}
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -103,22 +111,28 @@ export default function MultiplayerGamePage() {
               Players ({playersArray.length})
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {playersArray.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded bg-white/5 border border-white/10"
-                >
+              {playersArray.map((player) => {
+                const isImpostor = imposterId && player.id === imposterId;
+                const nameColor = isImpostor ? "text-red-400 font-bold" : "text-white";
+                
+                return (
                   <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: player.color }}
-                  />
-                  <span className="text-sm truncate">
-                    {player.name}
-                    {player.id === localPlayerId && " (You)"}
-                  </span>
-                  {player.isHost && <span className="text-xs">👑</span>}
-                </div>
-              ))}
+                    key={player.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded bg-white/5 border border-white/10"
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: player.color }}
+                    />
+                    <span className={`text-sm truncate ${nameColor}`}>
+                      {player.name}
+                      {player.id === localPlayerId && " (You)"}
+                      {isImpostor && " 🔴"}
+                    </span>
+                    {player.isHost && <span className="text-xs">👑</span>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

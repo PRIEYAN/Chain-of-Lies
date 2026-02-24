@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type GameState = "idle" | "selecting" | "spinning" | "result";
 type SectorColor = "red" | "green" | "violet";
@@ -152,6 +154,8 @@ export default function ColourPredictionSpinnerPopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task7";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const rafRef = useRef<number>(0);
     const spinStartRef = useRef<number>(0);
@@ -291,6 +295,20 @@ export default function ColourPredictionSpinnerPopup({
 
         rafRef.current = requestAnimationFrame(animate);
     }, [streak, redraw]);
+
+    // mark completion when a successful result occurs
+    useEffect(() => {
+        if (gameState === "result" && pointsGained > 0) {
+            try {
+                if (!completedTasks || !completedTasks[TASK_ID]) {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                }
+            } catch (e) {
+                console.warn("task emit failed", e);
+            }
+        }
+    }, [gameState, pointsGained, completedTasks, localPlayerId, markTaskCompleted]);
 
     const handlePredict = (color: SectorColor) => {
         if (gameState !== "selecting") return;

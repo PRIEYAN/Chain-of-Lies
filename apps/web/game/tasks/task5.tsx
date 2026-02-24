@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type GameState = "idle" | "playing" | "over";
 
@@ -257,6 +259,8 @@ export default function BlockCatcherPopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task5";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameDataRef = useRef<GameData>({
         blocks: [], paddleX: W / 2, score: 0, combo: 1, health: 100,
@@ -294,6 +298,20 @@ export default function BlockCatcherPopup({
         setDisplayState("over");
         cancelAnimationFrame(rafRef.current);
     }, []);
+
+    // mark completion when session ends
+    useEffect(() => {
+        if (displayState === "over") {
+            try {
+                if (!completedTasks || !completedTasks[TASK_ID]) {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                }
+            } catch (e) {
+                console.warn("task emit failed", e);
+            }
+        }
+    }, [displayState, completedTasks, localPlayerId, markTaskCompleted]);
 
     const gameLoop = useCallback((timestamp: number) => {
         const canvas = canvasRef.current;

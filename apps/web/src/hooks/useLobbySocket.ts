@@ -22,6 +22,9 @@ export function useLobbySocket() {
         setPlayers,
         setLocalPlayerId,
         setPhase,
+        setImposterId,
+        setRole,
+        setEncryptedWord,
         partyCode,
     } = useGameStore();
 
@@ -78,9 +81,22 @@ export function useLobbySocket() {
             // This could be stored in a separate state if needed
         };
 
-        const handleGameStarted = (data?: { phase?: string; round?: number }) => {
+        const handleGameStarted = (data?: { imposterId?: string; phase?: string; round?: number }) => {
             console.log("[Lobby] Game started:", data);
+            if (data?.imposterId) {
+                setImposterId(data.imposterId);
+            }
             setPhase(data?.phase === "TASKS" ? "TASKS" : "TASKS");
+        };
+
+        const handleRoleAssigned = (data: { role: "CREWMATE" | "IMPOSTER"; encryptedWord?: string; secretWord?: string }) => {
+            console.log("[Lobby] role_assigned event received:", data);
+            setRole(data.role);
+            if (data.encryptedWord) {
+                setEncryptedWord(data.encryptedWord);
+            }
+            // Phase transitions to TASKS when role is assigned
+            setPhase("TASKS");
         };
 
         const handleError = (data: { message: string }) => {
@@ -95,6 +111,7 @@ export function useLobbySocket() {
         socket.on("party_player_update", handlePartyPlayerUpdate);
         socket.on("party_list_updated", handlePartyListUpdated);
         socket.on("game_started", handleGameStarted);
+        socket.on("role_assigned", handleRoleAssigned);
         socket.on("error", handleError);
 
         // Cleanup
@@ -105,9 +122,10 @@ export function useLobbySocket() {
             socket.off("party_player_update", handlePartyPlayerUpdate);
             socket.off("party_list_updated", handlePartyListUpdated);
             socket.off("game_started", handleGameStarted);
+            socket.off("role_assigned", handleRoleAssigned);
             socket.off("error", handleError);
         };
-    }, [setConnected, setParty, setPlayers, setLocalPlayerId, setPhase]);
+    }, [setConnected, setParty, setPlayers, setLocalPlayerId, setPhase, setImposterId, setRole, setEncryptedWord]);
 
     // Return socket actions
     return {

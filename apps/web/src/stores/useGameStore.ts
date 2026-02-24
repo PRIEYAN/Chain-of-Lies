@@ -12,6 +12,7 @@ export interface Player {
     y: number;
     color: string;
     isHost: boolean;
+    role?: "CREWMATE" | "IMPOSTER";
     targetX?: number;
     targetY?: number;
     timestamp?: number;
@@ -45,6 +46,7 @@ interface GameState {
 
     // Game Logic
     role: "CREWMATE" | "IMPOSTER" | null;
+    imposterId: string | null;
     secretWord: string | null;
     encryptedWord: string | null;
     decryptedPercentage: number;
@@ -63,6 +65,10 @@ interface GameState {
     };
     isAlive: boolean;
     winner: "CREWMATE" | "IMPOSTER" | null;
+    // Task tracking
+    completedTasks: Record<string, boolean>;
+    taskCompletionCount: number;
+    lastTaskMessage: string | null;
 
     // Actions
     setConnected: (connected: boolean) => void;
@@ -72,11 +78,16 @@ interface GameState {
     setLocalPlayerId: (playerId: string) => void;
     setPhase: (phase: GamePhase) => void;
     setRole: (role: "CREWMATE" | "IMPOSTER" | null) => void;
+    setImposterId: (imposterId: string | null) => void;
     setEncryptedWord: (encryptedWord: string | null) => void;
     setDecryptedPercentage: (decryptedPercentage: number) => void;
     setSecretWord?: (secretWord: string | null) => void;
     setIsAlive?: (isAlive: boolean) => void;
     startMeeting: (startedAt?: number) => void;
+    // Task actions
+    markTaskCompleted: (taskId: string) => void;
+    incrementTaskCompletionCount: () => void;
+    setLastTaskMessage: (msg: string | null) => void;
     addMeetingMessage: (message: { playerId: string; message: string }) => void;
     updateMeetingTimer: (timeRemaining: number) => void;
     endMeeting: () => void;
@@ -99,10 +110,14 @@ const initialState = {
     localPlayerId: null,
     phase: "LOBBY" as GamePhase,
     role: null as "CREWMATE" | "IMPOSTER" | null,
+    imposterId: null as string | null,
     secretWord: null,
     encryptedWord: null,
     decryptedPercentage: 0,
     round: 1,
+    completedTasks: {},
+    taskCompletionCount: 0,
+    lastTaskMessage: null,
     meeting: {
         startedAt: null,
         messages: [],
@@ -149,6 +164,8 @@ export const useGameStore = create<GameState>((set) => ({
 
     setRole: (role) => set({ role }),
 
+    setImposterId: (imposterId: string | null) => set({ imposterId }),
+
     setEncryptedWord: (encryptedWord) => set({ encryptedWord }),
 
     setDecryptedPercentage: (decryptedPercentage) => set({ decryptedPercentage }),
@@ -156,6 +173,15 @@ export const useGameStore = create<GameState>((set) => ({
     setSecretWord: (secretWord: string | null) => set({ secretWord }),
 
     setIsAlive: (isAlive: boolean) => set({ isAlive }),
+
+    // Task actions
+    markTaskCompleted: (taskId: string) =>
+        set((state) => ({ completedTasks: { ...state.completedTasks, [taskId]: true } })),
+
+    incrementTaskCompletionCount: () =>
+        set((state) => ({ taskCompletionCount: (state.taskCompletionCount || 0) + 1 })),
+
+    setLastTaskMessage: (msg: string | null) => set({ lastTaskMessage: msg }),
 
     startMeeting: (startedAt?: number) =>
         set({
@@ -243,6 +269,7 @@ export const useGameStore = create<GameState>((set) => ({
             ...initialState,
             phase: "LOBBY",
             role: null,
+            imposterId: null,
             secretWord: null,
             encryptedWord: null,
             decryptedPercentage: 0,

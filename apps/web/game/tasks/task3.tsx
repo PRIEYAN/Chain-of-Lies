@@ -178,6 +178,8 @@ export default function GasFeeRunnerPopup({
 
     useEffect(() => {
         if (isOpen) {
+    const TASK_ID = "task3";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
             stateRef.current = makeState();
             setPhase("start");
         }
@@ -231,6 +233,15 @@ export default function GasFeeRunnerPopup({
                 ctx.lineTo(c * sz + ox, H);
                 ctx.stroke();
             }
+                // mark completion on dead/won for local player
+                try {
+                    if (!completedTasks || !completedTasks[TASK_ID]) {
+                        markTaskCompleted(TASK_ID);
+                        socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                    }
+                } catch (e) {
+                    console.warn("task emit failed", e);
+                }
             for (let r = 0; r <= rows; r++) {
                 ctx.beginPath();
                 ctx.moveTo(0, r * sz);

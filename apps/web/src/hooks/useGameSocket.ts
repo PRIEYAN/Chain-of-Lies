@@ -27,6 +27,9 @@ export function useGameSocket() {
     setVotingResults,
     setIsAlive,
     endGame,
+    markTaskCompleted,
+    incrementTaskCompletionCount,
+    setLastTaskMessage,
   } = useGameStore();
   const lastEmitTime = useRef(0);
   const EMIT_THROTTLE = 50; // 20fps
@@ -62,12 +65,8 @@ export function useGameSocket() {
     };
 
     const handleRoleAssigned = (data: { role: "CREWMATE" | "IMPOSTER"; encryptedWord?: string; secretWord?: string }) => {
-      console.log("[Game] role_assigned", data);
-      setRole(data.role);
-      if (data.encryptedWord) setEncryptedWord(data.encryptedWord);
-      if (data.secretWord) setSecretWord(data.secretWord);
-      // Phase likely moves to TASKS
-      setPhase("TASKS");
+      console.log("[Game] role_assigned (duplicate, handled in lobby)", data);
+      // Already handled in useLobbySocket, this is just a backup
     };
 
     const handleWordUpdate = (data: { encryptedWord?: string; decryptedPercentage?: number }) => {
@@ -76,8 +75,25 @@ export function useGameSocket() {
     };
 
     const handleTaskUpdate = (data: any) => {
-      // placeholder: front-end task sync may be implemented elsewhere
       console.log("[Game] task_update", data);
+      const taskId = data?.taskId;
+      const playerName = data?.playerName || null;
+
+      if (taskId) {
+        // Only mark the task completed for the client who performed it
+        if ((data.playerId && data.playerId === localPlayerId) || (data.playerSocketId && data.playerSocketId === localPlayerId)) {
+          markTaskCompleted(taskId);
+          if (data.taskName) markTaskCompleted(String(data.taskName));
+        }
+
+        // Increment visible completion counter for everyone
+        incrementTaskCompletionCount();
+
+        // Show a short-lived message
+        const msg = playerName ? `${playerName} completed a task` : `A player completed a task`;
+        setLastTaskMessage(msg);
+        setTimeout(() => setLastTaskMessage(null), 4000);
+      }
     };
 
     const handleMeetingStarted = (data: { startedAt?: number; referenceSentences?: string[] }) => {

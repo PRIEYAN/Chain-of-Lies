@@ -469,6 +469,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 io.to(party.partyCode).emit("game_started", {
                     gameId: game._id,
                     roomId: room._id,
+                    imposterId: game.imposterId,
                     phase: "TASKS",
                     round: game.round || 1,
                 });
@@ -557,10 +558,24 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     playerY
                 );
 
-                io.to(party.partyCode).emit("task_update", {
-                    taskId,
-                    completed: true,
-                });
+                // Fetch task and user info for richer update
+                try {
+                    const taskDoc = await taskService.getTask(taskId as any);
+                    const userDoc = await UserModel.findById(userId);
+                    io.to(party.partyCode).emit("task_update", {
+                        taskId,
+                        completed: true,
+                        playerId: userId?.toString() || null,
+                        playerSocketId: socket.id,
+                        playerName: userDoc?.username || party.players[socket.id]?.name || null,
+                        taskName: taskDoc?.name || null,
+                    });
+                } catch (err) {
+                    io.to(party.partyCode).emit("task_update", {
+                        taskId,
+                        completed: true,
+                    });
+                }
 
                 // Emit state update for frontend
                 io.to(party.partyCode).emit("state_updated", {
@@ -637,11 +652,24 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     data.playerY || 0
                 );
 
-                // Emit task update
-                io.to(party.partyCode).emit("task_update", {
-                    taskId: data.taskId,
-                    completed: true,
-                });
+                // Emit task update with player/task info
+                try {
+                    const taskDoc = await taskService.getTask(data.taskId as any);
+                    const userDoc = await UserModel.findById(userId);
+                    io.to(party.partyCode).emit("task_update", {
+                        taskId: data.taskId,
+                        completed: true,
+                        playerId: userId?.toString() || null,
+                        playerSocketId: socket.id,
+                        playerName: userDoc?.username || null,
+                        taskName: taskDoc?.name || null,
+                    });
+                } catch (err) {
+                    io.to(party.partyCode).emit("task_update", {
+                        taskId: data.taskId,
+                        completed: true,
+                    });
+                }
 
                 // If meeting should start
                 if (result.shouldStartMeeting) {

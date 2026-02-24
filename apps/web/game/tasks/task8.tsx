@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -316,6 +318,9 @@ export default function ColorSpinPopup({ isOpen, onClose }: ColorSpinPopupProps)
     const [bestStreak, setBestStreak] = useState(0);
     const [history, setHistory] = useState<RoundResult[]>([]);
 
+    const TASK_ID = "task8";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
+
     // ── Mutable refs (avoids stale closure bugs in timers)
     const rotateDegRef = useRef(0);
     const selectedRef = useRef<Color | null>(null);
@@ -388,6 +393,20 @@ export default function ColorSpinPopup({ isOpen, onClose }: ColorSpinPopupProps)
             playSound(won ? (targetColor === "Violet" ? "jackpot" : "win") : "lose");
         }, SPIN_DURATION_MS + 400);
     }, []);
+
+    // mark completion when a winning result happens
+    useEffect(() => {
+        if (phase === "result" && lastResult && lastResult.won) {
+            try {
+                if (!completedTasks || !completedTasks[TASK_ID]) {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                }
+            } catch (e) {
+                console.warn("task emit failed", e);
+            }
+        }
+    }, [phase, lastResult, completedTasks, localPlayerId, markTaskCompleted]);
 
     // ── Countdown starter
     const startCountdown = useCallback(() => {

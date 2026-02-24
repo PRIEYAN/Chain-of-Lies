@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type GameState = "idle" | "showing" | "playerTurn" | "success" | "gameOver";
 type TileColor = "cyan" | "purple" | "gold" | "red" | "green";
@@ -47,6 +49,8 @@ export default function MemoryMinerPopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task4";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const [gameState, setGameState] = useState<GameState>("idle");
     const [sequence, setSequence] = useState<TileColor[]>([]);
     const [playerInput, setPlayerInput] = useState<TileColor[]>([]);
@@ -149,6 +153,20 @@ export default function MemoryMinerPopup({
         setNewBlock(false);
         playSequence(seq);
     };
+
+    // mark completion when chain completes
+    useEffect(() => {
+        if (chain >= 5) {
+            try {
+                if (!completedTasks || !completedTasks[TASK_ID]) {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                }
+            } catch (e) {
+                console.warn("task emit failed", e);
+            }
+        }
+    }, [chain, completedTasks, localPlayerId, markTaskCompleted]);
 
     const handleTilePress = (tileId: TileColor) => {
         if (gameState !== "playerTurn") return;

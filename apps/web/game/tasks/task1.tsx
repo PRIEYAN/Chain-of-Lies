@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 type Block = {
     value: number;
@@ -32,6 +34,8 @@ export default function BrokenSequencePopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task1";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const [blocks, setBlocks] = useState<Block[]>(() =>
         generateSequence()
     );
@@ -43,6 +47,12 @@ export default function BrokenSequencePopup({
         (index: number) => {
             if (gameState === "success") return;
 
+            if (completedTasks && completedTasks[TASK_ID]) {
+                setMessage("You have already completed this task.");
+                setTimeout(() => setMessage(""), 1500);
+                return;
+            }
+
             const block = blocks[index];
 
             if (block.isTampered) {
@@ -53,12 +63,19 @@ export default function BrokenSequencePopup({
                 setBlocks(fixed);
                 setGameState("success");
                 setMessage("Ledger Recalibrated");
+                // Mark locally and notify server
+                try {
+                    markTaskCompleted(TASK_ID);
+                    socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                } catch (e) {
+                    console.warn("task emit failed", e);
+                }
             } else {
                 setMessage("That block is valid.");
                 setTimeout(() => setMessage(""), 1500);
             }
         },
-        [blocks, gameState]
+        [blocks, gameState, completedTasks, localPlayerId, markTaskCompleted]
     );
 
     const resetGame = () => {
@@ -113,8 +130,13 @@ export default function BrokenSequencePopup({
                     </div>
                 )}
 
+                {/* Completed badge for local player */}
+                {completedTasks && completedTasks[TASK_ID] && (
+                  <div style={{ marginBottom: 12, color: '#9aa' }}>Completed</div>
+                )}
+
                 <button style={styles.resetBtn} onClick={resetGame}>
-                    New Sequence
+                    Try Again
                 </button>
             </div>
         </div>

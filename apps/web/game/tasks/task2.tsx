@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { socket } from "@/shared/socket";
+import { useGameStore } from "@/stores/useGameStore";
 
 const CANVAS_W = 380;
 const CANVAS_H = 560;
@@ -63,6 +65,8 @@ export default function BlockBouncePopup({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const TASK_ID = "task2";
+    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const stateRef = useRef<{
         gameState: GameState;
@@ -267,6 +271,15 @@ export default function BlockBouncePopup({
                     s.gameState = "won";
                     setDisplayState("won");
                     setFinalScore(s.score);
+                    // Mark completion for local player and notify server
+                    try {
+                        if (!completedTasks || !completedTasks[TASK_ID]) {
+                            markTaskCompleted(TASK_ID);
+                            socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId });
+                        }
+                    } catch (e) {
+                        console.warn("task emit failed", e);
+                    }
                 }
 
                 // Death check — fell off screen
