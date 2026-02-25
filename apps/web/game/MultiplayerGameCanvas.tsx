@@ -25,6 +25,7 @@ import BlockCatcherPopup from "./tasks/task5";
 import SmartContractQuickFixPopup from "./tasks/task6";
 import ColourPredictionSpinnerPopup from "./tasks/task7";
 import ColorSpinPopup from "./tasks/task8";
+import ElevatorLeverPopup from "./tasks/task9";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -76,6 +77,7 @@ export default function MultiplayerGameCanvas() {
   const [showFix, setShowFix] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false);
   const [showColorSpin, setShowColorSpin] = useState(false);
+  const [showElevatorLever, setShowElevatorLever] = useState(false);
 
   const eWasPressed = useRef(false);
 
@@ -99,6 +101,7 @@ export default function MultiplayerGameCanvas() {
         setShowFix(false);
         setShowSpinner(false);
         setShowColorSpin(false);
+        setShowElevatorLever(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -113,7 +116,7 @@ export default function MultiplayerGameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever;
 
     // -------- LOCAL PLAYER MOVEMENT --------
     // Allow movement only during TASKS phase and if player is alive
@@ -222,6 +225,8 @@ export default function MultiplayerGameCanvas() {
           setShowSpinner(true);
         } else if (nearTaskIndex === 7) {
           setShowColorSpin(true);
+        } else if (nearTaskIndex === 8) {
+          setShowElevatorLever(true);
         }
       }
       eWasPressed.current = ePressed;
@@ -362,7 +367,7 @@ export default function MultiplayerGameCanvas() {
     // 8. Restore context state
     ctx.restore();
 
-  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin]);
+  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever]);
 
   // Start game loop
   useGameLoop(update);
@@ -418,6 +423,11 @@ export default function MultiplayerGameCanvas() {
         <ColorSpinPopup
           isOpen={showColorSpin}
           onClose={() => setShowColorSpin(false)}
+        />
+
+        <ElevatorLeverPopup
+          isOpen={showElevatorLever}
+          onClose={() => setShowElevatorLever(false)}
         />
       </div>
 
