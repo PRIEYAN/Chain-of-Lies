@@ -26,6 +26,8 @@ import SmartContractQuickFixPopup from "./tasks/task6";
 import ColourPredictionSpinnerPopup from "./tasks/task7";
 import ColorSpinPopup from "./tasks/task8";
 import ElevatorLeverPopup from "./tasks/task9";
+import NonceFinderPopup from "./tasks/task10";
+import MempoolCleanupPopup from "./tasks/task11";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -78,6 +80,8 @@ export default function MultiplayerGameCanvas() {
   const [showSpinner, setShowSpinner] = useState(false);
   const [showColorSpin, setShowColorSpin] = useState(false);
   const [showElevatorLever, setShowElevatorLever] = useState(false);
+  const [showNonceFinder, setShowNonceFinder] = useState(false);
+  const [showMempoolCleanup, setShowMempoolCleanup] = useState(false);
 
   const eWasPressed = useRef(false);
 
@@ -102,6 +106,8 @@ export default function MultiplayerGameCanvas() {
         setShowSpinner(false);
         setShowColorSpin(false);
         setShowElevatorLever(false);
+        setShowNonceFinder(false);
+        setShowMempoolCleanup(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -116,7 +122,7 @@ export default function MultiplayerGameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever || showNonceFinder || showMempoolCleanup;
 
     // -------- LOCAL PLAYER MOVEMENT --------
     // Allow movement only during TASKS phase and if player is alive
@@ -227,6 +233,10 @@ export default function MultiplayerGameCanvas() {
           setShowColorSpin(true);
         } else if (nearTaskIndex === 8) {
           setShowElevatorLever(true);
+        } else if (nearTaskIndex === 9) {
+          setShowNonceFinder(true);
+        } else if (nearTaskIndex === 10) {
+          setShowMempoolCleanup(true);
         }
       }
       eWasPressed.current = ePressed;
@@ -367,7 +377,7 @@ export default function MultiplayerGameCanvas() {
     // 8. Restore context state
     ctx.restore();
 
-  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever]);
+  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever, showNonceFinder, showMempoolCleanup]);
 
   // Start game loop
   useGameLoop(update);
@@ -428,6 +438,16 @@ export default function MultiplayerGameCanvas() {
         <ElevatorLeverPopup
           isOpen={showElevatorLever}
           onClose={() => setShowElevatorLever(false)}
+        />
+
+        <NonceFinderPopup
+          isOpen={showNonceFinder}
+          onClose={() => setShowNonceFinder(false)}
+        />
+
+        <MempoolCleanupPopup
+          isOpen={showMempoolCleanup}
+          onClose={() => setShowMempoolCleanup(false)}
         />
       </div>
 
