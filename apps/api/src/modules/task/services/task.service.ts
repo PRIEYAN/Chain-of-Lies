@@ -56,7 +56,7 @@ export class TaskService {
 
     const distance = Math.sqrt(
       Math.pow(playerX - task.location.x, 2) +
-        Math.pow(playerY - task.location.y, 2)
+      Math.pow(playerY - task.location.y, 2)
     );
 
     return distance <= TASK_PROXIMITY_THRESHOLD;
@@ -76,6 +76,7 @@ export class TaskService {
     shouldStartMeeting?: boolean;
     encryptedWord?: string;
     decryptedPercentage?: number;
+    taskProgress?: number;
   }> {
     // Resolve task by id, taskKey, or name
     let task: ITask | null = null;
@@ -165,6 +166,7 @@ export class TaskService {
         success: true,
         shouldStartMeeting: result.shouldStartMeeting,
         encryptedWord: result.encryptedWord,
+        taskProgress: result.taskProgress,
       };
     } else {
       const result = await gameService.completeImposterTask(
@@ -182,6 +184,7 @@ export class TaskService {
         success: true,
         encryptedWord: result.encryptedWord,
         decryptedPercentage: result.decryptedPercentage,
+        taskProgress: result.taskProgress,
       };
     }
   }

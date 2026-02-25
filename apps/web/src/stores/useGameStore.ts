@@ -50,8 +50,8 @@ interface GameState {
     secretWord: string | null;
     encryptedWord: string | null;
     decryptedPercentage: number;
+    taskProgress: number;
     round: number;
-    phase: GamePhase;
     meeting: {
         startedAt: number | null;
         messages: Array<{ playerId: string; message: string }>;
@@ -81,6 +81,7 @@ interface GameState {
     setImposterId: (imposterId: string | null) => void;
     setEncryptedWord: (encryptedWord: string | null) => void;
     setDecryptedPercentage: (decryptedPercentage: number) => void;
+    setTaskProgress: (taskProgress: number) => void;
     setSecretWord?: (secretWord: string | null) => void;
     setIsAlive?: (isAlive: boolean) => void;
     startMeeting: (startedAt?: number) => void;
@@ -114,6 +115,7 @@ const initialState = {
     secretWord: null,
     encryptedWord: null,
     decryptedPercentage: 0,
+    taskProgress: 0,
     round: 1,
     completedTasks: {},
     taskCompletionCount: 0,
@@ -169,6 +171,8 @@ export const useGameStore = create<GameState>((set) => ({
     setEncryptedWord: (encryptedWord) => set({ encryptedWord }),
 
     setDecryptedPercentage: (decryptedPercentage) => set({ decryptedPercentage }),
+
+    setTaskProgress: (taskProgress) => set({ taskProgress }),
 
     setSecretWord: (secretWord: string | null) => set({ secretWord }),
 
@@ -273,6 +277,7 @@ export const useGameStore = create<GameState>((set) => ({
             secretWord: null,
             encryptedWord: null,
             decryptedPercentage: 0,
+            taskProgress: 0,
             meeting: {
                 startedAt: null,
                 messages: [],

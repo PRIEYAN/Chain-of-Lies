@@ -16,6 +16,7 @@ export function useGameSocket() {
     setRole,
     setEncryptedWord,
     setDecryptedPercentage,
+    setTaskProgress,
     setSecretWord,
     startMeeting,
     addMeetingMessage,
@@ -38,13 +39,13 @@ export function useGameSocket() {
     // Game events
     const handlePlayersUpdate = (data: { players: Record<string, Player> }) => {
       console.log("[Game] Players update:", data);
-      
+
       const updatedPlayers: Record<string, Player> = {};
       const currentTime = Date.now();
-      
+
       Object.entries(data.players).forEach(([id, player]) => {
         const existingPlayer = useGameStore.getState().players[id];
-        
+
         // For remote players, set target position for interpolation
         if (id !== localPlayerId) {
           updatedPlayers[id] = {
@@ -60,7 +61,7 @@ export function useGameSocket() {
           updatedPlayers[id] = existingPlayer || player;
         }
       });
-      
+
       setPlayers(updatedPlayers);
     };
 
@@ -69,9 +70,10 @@ export function useGameSocket() {
       // Already handled in useLobbySocket, this is just a backup
     };
 
-    const handleWordUpdate = (data: { encryptedWord?: string; decryptedPercentage?: number }) => {
+    const handleWordUpdate = (data: { encryptedWord?: string; decryptedPercentage?: number; taskProgress?: number }) => {
       if (data.encryptedWord) setEncryptedWord(data.encryptedWord);
       if (typeof data.decryptedPercentage === "number") setDecryptedPercentage(data.decryptedPercentage);
+      if (typeof data.taskProgress === "number") setTaskProgress(data.taskProgress);
     };
 
     const handleTaskUpdate = (data: any) => {
@@ -80,6 +82,7 @@ export function useGameSocket() {
       const playerName = data?.playerName || null;
 
       if (taskId) {
+        if (typeof data.taskProgress === "number") setTaskProgress(data.taskProgress);
         // Only mark the task completed for the client who performed it
         if ((data.playerId && data.playerId === localPlayerId) || (data.playerSocketId && data.playerSocketId === localPlayerId)) {
           markTaskCompleted(taskId);
@@ -101,7 +104,7 @@ export function useGameSocket() {
       startMeeting(data.startedAt);
       if (data.referenceSentences) {
         // store reference sentences
-        useGameStore.setState((s) => ({ meeting: { ...s.meeting, referenceSentences: data.referenceSentences } }));
+        useGameStore.setState((s) => ({ meeting: { ...s.meeting, referenceSentences: data.referenceSentences || [] } }));
       }
     };
 
@@ -126,7 +129,7 @@ export function useGameSocket() {
     const handlePlayerEliminated = (data: { playerId: string }) => {
       console.log("[Game] player_eliminated", data);
       // mark player not alive
-      setIsAlive(false);
+      setIsAlive?.(false);
       // remove from players list handled by players_update
     };
 

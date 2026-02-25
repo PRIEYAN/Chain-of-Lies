@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useKeyboard } from "./useKeyboard";
 import { useGameLoop } from "./useGameLoop";
+import { useGameStore } from "@/stores/useGameStore";
 import {
   rooms,
   corridors,
@@ -54,6 +55,7 @@ const TASK_ZONE_LABELS = [
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
+  const { completedTasks } = useGameStore();
 
   // Task 1 (Cafeteria zone, index 0) popup state
   const [showPuzzle, setShowPuzzle] = useState(false);
@@ -156,41 +158,45 @@ export default function GameCanvas() {
     // E key: open task on press (edge-trigger, not hold)
     const ePressed = !!(keys.current["e"] || keys.current["E"]);
     if (canInteract && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
-      // Task zone 0 = Cafeteria → Task 1
-      if (nearTaskIndex === 0) {
-        setShowPuzzle(true);
-      }
-      // Task zone 1 = Weapons → Task 2
-      else if (nearTaskIndex === 1) {
-        setShowBounce(true);
-      }
-      // Task zone 2 = Navigation → Task 3
-      else if (nearTaskIndex === 2) {
-        setShowGasFee(true);
-      }
-      // Task zone 3 = Shields → Task 4
-      else if (nearTaskIndex === 3) {
-        setShowMiner(true);
-      }
-      // Task zone 4 = O2 → Task 5
-      else if (nearTaskIndex === 4) {
-        setShowCatcher(true);
-      }
-      // Task zone 5 = Admin → Task 6
-      else if (nearTaskIndex === 5) {
-        setShowFix(true);
-      }
-      // Task zone 6 = Storage → Task 7
-      else if (nearTaskIndex === 6) {
-        setShowSpinner(true);
-      }
-      // Task zone 7 = Electrical → Task 8
-      else if (nearTaskIndex === 7) {
-        setShowColorSpin(true);
-      }
-      // Task zone 8 = Lower Engine → Task 9
-      else if (nearTaskIndex === 8) {
-        setShowElevatorLever(true);
+      const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+      if (!isTaskCompleted) {
+        // Task zone 0 = Cafeteria → Task 1
+        if (nearTaskIndex === 0) {
+          setShowPuzzle(true);
+        }
+        // Task zone 1 = Weapons → Task 2
+        else if (nearTaskIndex === 1) {
+          setShowBounce(true);
+        }
+        // Task zone 2 = Navigation → Task 3
+        else if (nearTaskIndex === 2) {
+          setShowGasFee(true);
+        }
+        // Task zone 3 = Shields → Task 4
+        else if (nearTaskIndex === 3) {
+          setShowMiner(true);
+        }
+        // Task zone 4 = O2 → Task 5
+        else if (nearTaskIndex === 4) {
+          setShowCatcher(true);
+        }
+        // Task zone 5 = Admin → Task 6
+        else if (nearTaskIndex === 5) {
+          setShowFix(true);
+        }
+        // Task zone 6 = Storage → Task 7
+        else if (nearTaskIndex === 6) {
+          setShowSpinner(true);
+        }
+        // Task zone 7 = Electrical → Task 8
+        else if (nearTaskIndex === 7) {
+          setShowColorSpin(true);
+        }
+        // Task zone 8 = Lower Engine → Task 9
+        else if (nearTaskIndex === 8) {
+          setShowElevatorLever(true);
+        }
       }
     }
     eWasPressed.current = ePressed;
@@ -217,7 +223,14 @@ export default function GameCanvas() {
 
     // Task Zones
     taskZones.forEach((t, index) => {
-      ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      const isTaskCompleted = completedTasks["task" + (index + 1)];
+
+      if (isTaskCompleted) {
+        ctx.fillStyle = "#6b7280"; // Grey for completed
+      } else {
+        ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      }
+
       ctx.fillRect(t.x, t.y, t.width, t.height);
 
       ctx.fillStyle = "#000";
@@ -254,14 +267,18 @@ export default function GameCanvas() {
 
     // Interaction prompt
     if (canInteract && !isAnyTaskOpen) {
-      ctx.fillStyle = "#facc15";
-      ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Press E to interact",
-        player.current.x,
-        player.current.y - player.current.size - 25
-      );
+      const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+      if (!isTaskCompleted) {
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          "Press E to interact",
+          player.current.x,
+          player.current.y - player.current.size - 25
+        );
+      }
     }
 
     ctx.restore();

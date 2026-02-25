@@ -10,7 +10,8 @@ export default function ElevatorLeverPopup({
     onClose: () => void;
 }) {
     const TASK_ID = "task9";
-    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
+    const { completedTasks, localPlayerId, markTaskCompleted, players } = useGameStore();
+    const localPlayerData = localPlayerId ? players[localPlayerId] : null;
 
     const [leverPos, setLeverPos] = useState(0); // 0 = top, 1 = bottom
     const [isDragging, setIsDragging] = useState(false);
@@ -37,19 +38,9 @@ export default function ElevatorLeverPopup({
             const deltaTime = time - lastTime.current;
 
             if (leverPos === 1 && !isComplete) {
-                setProgress(prev => {
-                    const newProgress = Math.min(100, prev + (deltaTime / holdTimeRequired) * 100);
-                    if (newProgress === 100 && !isComplete) {
-                        handleComplete();
-                    }
-                    return newProgress;
-                });
+                setProgress(prev => Math.min(100, prev + (deltaTime / holdTimeRequired) * 100));
             } else if (!isComplete) {
-                // If not at bottom, progress slowly decays? Or just stays?
-                // User said: "If released too early, debris remains." 
-                // Let's make it stay where it is for "burn away" effect, 
-                // but the prompt implies it needs to be "continuously held to keep power active".
-                // We'll keep the progress but stop the clearing.
+                // Keep the progress but stop the clearing.
             }
         }
         lastTime.current = time;
@@ -68,11 +59,23 @@ export default function ElevatorLeverPopup({
         };
     }, [isOpen, animate]);
 
+    useEffect(() => {
+        if (progress === 100 && !isComplete && isOpen) {
+            handleComplete();
+        }
+    }, [progress, isComplete, isOpen]);
+
     const handleComplete = () => {
         setIsComplete(true);
         try {
             markTaskCompleted(TASK_ID);
-            socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: 15 });
+            socket.emit("task_completed", {
+                taskId: TASK_ID,
+                playerSocketId: localPlayerId,
+                points: 15,
+                playerX: localPlayerData?.x || 0,
+                playerY: localPlayerData?.y || 0
+            });
         } catch (e) {
             console.warn("task emit failed", e);
         }

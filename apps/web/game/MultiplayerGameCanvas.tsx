@@ -65,7 +65,7 @@ export default function MultiplayerGameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
 
-  const { players, localPlayerId, updatePlayer, phase, isAlive } = useGameStore();
+  const { players, localPlayerId, updatePlayer, phase, isAlive, completedTasks } = useGameStore();
   const { emitPlayerMove } = useGameSocket();
 
   // Task states
@@ -209,24 +209,28 @@ export default function MultiplayerGameCanvas() {
 
       const ePressed = !!(keys.current["e"] || keys.current["E"]);
       if (canInteract && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
-        if (nearTaskIndex === 0) {
-          setShowPuzzle(true);
-        } else if (nearTaskIndex === 1) {
-          setShowBounce(true);
-        } else if (nearTaskIndex === 2) {
-          setShowGasFee(true);
-        } else if (nearTaskIndex === 3) {
-          setShowMiner(true);
-        } else if (nearTaskIndex === 4) {
-          setShowCatcher(true);
-        } else if (nearTaskIndex === 5) {
-          setShowFix(true);
-        } else if (nearTaskIndex === 6) {
-          setShowSpinner(true);
-        } else if (nearTaskIndex === 7) {
-          setShowColorSpin(true);
-        } else if (nearTaskIndex === 8) {
-          setShowElevatorLever(true);
+        const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+        if (!isTaskCompleted) {
+          if (nearTaskIndex === 0) {
+            setShowPuzzle(true);
+          } else if (nearTaskIndex === 1) {
+            setShowBounce(true);
+          } else if (nearTaskIndex === 2) {
+            setShowGasFee(true);
+          } else if (nearTaskIndex === 3) {
+            setShowMiner(true);
+          } else if (nearTaskIndex === 4) {
+            setShowCatcher(true);
+          } else if (nearTaskIndex === 5) {
+            setShowFix(true);
+          } else if (nearTaskIndex === 6) {
+            setShowSpinner(true);
+          } else if (nearTaskIndex === 7) {
+            setShowColorSpin(true);
+          } else if (nearTaskIndex === 8) {
+            setShowElevatorLever(true);
+          }
         }
       }
       eWasPressed.current = ePressed;
@@ -269,7 +273,14 @@ export default function MultiplayerGameCanvas() {
 
     // Task Zones
     taskZones.forEach((t, index) => {
-      ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      const isTaskCompleted = completedTasks["task" + (index + 1)];
+
+      if (isTaskCompleted) {
+        ctx.fillStyle = "#6b7280"; // Grey for completed
+      } else {
+        ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      }
+
       ctx.fillRect(t.x, t.y, t.width, t.height);
 
       ctx.fillStyle = "#000";
@@ -354,14 +365,18 @@ export default function MultiplayerGameCanvas() {
 
     // 7. Interaction prompt
     if (nearTaskIndex !== null && localPlayerData && !isAnyTaskOpen) {
-      ctx.fillStyle = "#facc15";
-      ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Press E to interact",
-        localPlayerData.x,
-        localPlayerData.y - localPlayer.current.size - 35
-      );
+      const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+      if (!isTaskCompleted) {
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          "Press E to interact",
+          localPlayerData.x,
+          localPlayerData.y - localPlayer.current.size - 35
+        );
+      }
     }
 
     // 8. Restore context state
