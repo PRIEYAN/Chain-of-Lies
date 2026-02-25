@@ -67,7 +67,7 @@ export default function MultiplayerGameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
 
-  const { players, localPlayerId, updatePlayer, phase, isAlive } = useGameStore();
+  const { players, localPlayerId, updatePlayer, phase, isAlive, completedTasks } = useGameStore();
   const { emitPlayerMove } = useGameSocket();
 
   // Task states
@@ -215,28 +215,32 @@ export default function MultiplayerGameCanvas() {
 
       const ePressed = !!(keys.current["e"] || keys.current["E"]);
       if (canInteract && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
-        if (nearTaskIndex === 0) {
-          setShowPuzzle(true);
-        } else if (nearTaskIndex === 1) {
-          setShowBounce(true);
-        } else if (nearTaskIndex === 2) {
-          setShowGasFee(true);
-        } else if (nearTaskIndex === 3) {
-          setShowMiner(true);
-        } else if (nearTaskIndex === 4) {
-          setShowCatcher(true);
-        } else if (nearTaskIndex === 5) {
-          setShowFix(true);
-        } else if (nearTaskIndex === 6) {
-          setShowSpinner(true);
-        } else if (nearTaskIndex === 7) {
-          setShowColorSpin(true);
-        } else if (nearTaskIndex === 8) {
-          setShowElevatorLever(true);
-        } else if (nearTaskIndex === 9) {
-          setShowNonceFinder(true);
-        } else if (nearTaskIndex === 10) {
-          setShowMempoolCleanup(true);
+        const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+        if (!isTaskCompleted) {
+          if (nearTaskIndex === 0) {
+            setShowPuzzle(true);
+          } else if (nearTaskIndex === 1) {
+            setShowBounce(true);
+          } else if (nearTaskIndex === 2) {
+            setShowGasFee(true);
+          } else if (nearTaskIndex === 3) {
+            setShowMiner(true);
+          } else if (nearTaskIndex === 4) {
+            setShowCatcher(true);
+          } else if (nearTaskIndex === 5) {
+            setShowFix(true);
+          } else if (nearTaskIndex === 6) {
+            setShowSpinner(true);
+          } else if (nearTaskIndex === 7) {
+            setShowColorSpin(true);
+          } else if (nearTaskIndex === 8) {
+            setShowElevatorLever(true);
+          } else if (nearTaskIndex === 9) {
+            setShowNonceFinder(true);
+          } else if (nearTaskIndex === 10) {
+            setShowMempoolCleanup(true);
+          }
         }
       }
       eWasPressed.current = ePressed;
