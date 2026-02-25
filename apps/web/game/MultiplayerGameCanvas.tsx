@@ -83,7 +83,7 @@ export default function MultiplayerGameCanvas() {
 
   const localPlayer = useRef({
     size: 15,
-    speed: 0.7,
+    speed: 10.7,
   });
 
   // Get local player data from store
