@@ -75,7 +75,7 @@ export default function ElevatorLeverPopup({
             socket.emit("task_completed", {
                 taskId: TASK_ID,
                 playerSocketId: localPlayerId,
-                points: 15,
+                points: 5,
                 playerX: localPlayerData?.x || 0,
                 playerY: localPlayerData?.y || 0
             });

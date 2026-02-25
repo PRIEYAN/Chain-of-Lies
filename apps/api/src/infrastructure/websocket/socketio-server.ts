@@ -455,8 +455,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
                         playerSocket.emit("role_assigned", {
                             role,
-                            encryptedWord: role === "CREWMATE" ? game.encryptedWord : undefined,
-                            secretWord: undefined, // Never send secret word to client
+                            encryptedWord: game.encryptedWord,
+                            secretWord: role === "CREWMATE" ? game.secretWord : undefined,
                         });
 
                         // Emit word update to crewmates
@@ -725,36 +725,12 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 }
 
                 // Emit word update if needed
-                if (result.encryptedWord) {
-                    const room = await RoomModel.findOne({ roomCode: party.partyCode });
-                    if (room) {
-                        const roomDoc = await RoomModel.findById(room._id);
-                        if (roomDoc) {
-                            for (const player of roomDoc.players) {
-                                if (player.role === "CREWMATE") {
-                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                                        (s: any) => s.data?.userId === player.userId.toString()
-                                    );
-                                    if (playerSocket) {
-                                        playerSocket.emit("word_update", {
-                                            encryptedWord: result.encryptedWord,
-                                            taskProgress: result.taskProgress || 0,
-                                        });
-                                    }
-                                } else if (player.role === "IMPOSTER" && result.decryptedPercentage !== undefined) {
-                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                                        (s: any) => s.data?.userId === player.userId.toString()
-                                    );
-                                    if (playerSocket) {
-                                        playerSocket.emit("word_update", {
-                                            decryptedPercentage: result.decryptedPercentage,
-                                            taskProgress: result.taskProgress,
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
+                if (result.encryptedWord !== undefined || result.decryptedPercentage !== undefined) {
+                    io.to(party.partyCode).emit("word_update", {
+                        encryptedWord: result.encryptedWord,
+                        decryptedPercentage: result.decryptedPercentage,
+                        taskProgress: result.taskProgress || 0,
+                    });
                 }
 
                 // Check win conditions

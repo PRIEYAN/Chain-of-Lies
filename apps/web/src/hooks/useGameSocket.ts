@@ -71,6 +71,7 @@ export function useGameSocket() {
     };
 
     const handleWordUpdate = (data: { encryptedWord?: string; decryptedPercentage?: number; taskProgress?: number }) => {
+      console.log("[Game] word_update received", data);
       if (data.encryptedWord) setEncryptedWord(data.encryptedWord);
       if (typeof data.decryptedPercentage === "number") setDecryptedPercentage(data.decryptedPercentage);
       if (typeof data.taskProgress === "number") setTaskProgress(data.taskProgress);

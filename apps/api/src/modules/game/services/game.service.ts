@@ -550,6 +550,7 @@ export class GameService {
   ): Promise<{
     role: "CREWMATE" | "IMPOSTER";
     encryptedWord?: string;
+    secretWord?: string;
     phase: GamePhase;
     round: number;
   }> {
@@ -572,7 +573,8 @@ export class GameService {
 
     return {
       role,
-      encryptedWord: isImposter ? undefined : game.encryptedWord,
+      encryptedWord: game.encryptedWord,
+      secretWord: !isImposter ? game.secretWord : undefined,
       phase: game.phase,
       round: game.round,
     };
