@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useKeyboard } from "./useKeyboard";
 import { useGameLoop } from "./useGameLoop";
+import { useGameStore } from "@/stores/useGameStore";
 import {
   rooms,
   corridors,
@@ -18,6 +19,10 @@ import SmartContractQuickFixPopup from "./tasks/task6";
 import ColourPredictionSpinnerPopup from "./tasks/task7";
 import ColorSpinPopup from "./tasks/task8";
 import ElevatorLeverPopup from "./tasks/task9";
+import NonceFinderPopup from "./tasks/task10";
+import MempoolCleanupPopup from "./tasks/task11";
+import ConsensusAlignmentPopup from "./tasks/task12";
+import BridgeGuardianPopup from "./tasks/task13";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -54,6 +59,7 @@ const TASK_ZONE_LABELS = [
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
+  const { completedTasks } = useGameStore();
 
   // Task 1 (Cafeteria zone, index 0) popup state
   const [showPuzzle, setShowPuzzle] = useState(false);
@@ -73,6 +79,14 @@ export default function GameCanvas() {
   const [showColorSpin, setShowColorSpin] = useState(false);
   // Task 9 (Lower Engine zone, index 8) popup state
   const [showElevatorLever, setShowElevatorLever] = useState(false);
+  // Task 10 (Security zone, index 9) popup state
+  const [showNonceFinder, setShowNonceFinder] = useState(false);
+  // Task 11 (Reactor zone, index 10) popup state
+  const [showMempoolCleanup, setShowMempoolCleanup] = useState(false);
+  // Task 12 (Upper Engine zone, index 11) popup state
+  const [showConsensusAlignment, setShowConsensusAlignment] = useState(false);
+  // Task 13 (Medbay zone, index 12) popup state
+  const [showBridgeGuardian, setShowBridgeGuardian] = useState(false);
 
   // Track which task zone the player is near (for E-key trigger)
   const nearTaskIndexRef = useRef<number | null>(null);
@@ -98,6 +112,10 @@ export default function GameCanvas() {
         setShowSpinner(false);
         setShowColorSpin(false);
         setShowElevatorLever(false);
+        setShowNonceFinder(false);
+        setShowMempoolCleanup(false);
+        setShowConsensusAlignment(false);
+        setShowBridgeGuardian(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -110,7 +128,7 @@ export default function GameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever || showNonceFinder || showMempoolCleanup || showConsensusAlignment || showBridgeGuardian;
 
     // -------- MOVEMENT (blocked while a task is open) --------
     if (!isAnyTaskOpen) {
@@ -154,43 +172,64 @@ export default function GameCanvas() {
     const canInteract = nearTaskIndex !== null;
 
     // E key: open task on press (edge-trigger, not hold)
+    const currentIndex = nearTaskIndex;
     const ePressed = !!(keys.current["e"] || keys.current["E"]);
-    if (canInteract && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
-      // Task zone 0 = Cafeteria → Task 1
-      if (nearTaskIndex === 0) {
-        setShowPuzzle(true);
-      }
-      // Task zone 1 = Weapons → Task 2
-      else if (nearTaskIndex === 1) {
-        setShowBounce(true);
-      }
-      // Task zone 2 = Navigation → Task 3
-      else if (nearTaskIndex === 2) {
-        setShowGasFee(true);
-      }
-      // Task zone 3 = Shields → Task 4
-      else if (nearTaskIndex === 3) {
-        setShowMiner(true);
-      }
-      // Task zone 4 = O2 → Task 5
-      else if (nearTaskIndex === 4) {
-        setShowCatcher(true);
-      }
-      // Task zone 5 = Admin → Task 6
-      else if (nearTaskIndex === 5) {
-        setShowFix(true);
-      }
-      // Task zone 6 = Storage → Task 7
-      else if (nearTaskIndex === 6) {
-        setShowSpinner(true);
-      }
-      // Task zone 7 = Electrical → Task 8
-      else if (nearTaskIndex === 7) {
-        setShowColorSpin(true);
-      }
-      // Task zone 8 = Lower Engine → Task 9
-      else if (nearTaskIndex === 8) {
-        setShowElevatorLever(true);
+    if (currentIndex !== null && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
+      const isTaskCompleted = completedTasks["task" + (currentIndex + 1)];
+
+      if (!isTaskCompleted) {
+        // Task zone 0 = Cafeteria → Task 1
+        if (currentIndex === 0) {
+          setShowPuzzle(true);
+        }
+        // Task zone 1 = Weapons → Task 2
+        else if (currentIndex === 1) {
+          setShowBounce(true);
+        }
+        // Task zone 2 = Navigation → Task 3
+        else if (currentIndex === 2) {
+          setShowGasFee(true);
+        }
+        // Task zone 3 = Shields → Task 4
+        else if (currentIndex === 3) {
+          setShowMiner(true);
+        }
+        // Task zone 4 = O2 → Task 5
+        else if (currentIndex === 4) {
+          setShowCatcher(true);
+        }
+        // Task zone 5 = Admin → Task 6
+        else if (currentIndex === 5) {
+          setShowFix(true);
+        }
+        // Task zone 6 = Storage → Task 7
+        else if (currentIndex === 6) {
+          setShowSpinner(true);
+        }
+        // Task zone 7 = Electrical → Task 8
+        else if (currentIndex === 7) {
+          setShowColorSpin(true);
+        }
+        // Task zone 8 = Lower Engine → Task 9
+        else if (currentIndex === 8) {
+          setShowElevatorLever(true);
+        }
+        // Task zone 9 = Security → Task 10
+        else if (currentIndex === 9) {
+          setShowNonceFinder(true);
+        }
+        // Task zone 10 = Reactor → Task 11
+        else if (currentIndex === 10) {
+          setShowMempoolCleanup(true);
+        }
+        // Task zone 11 = Upper Engine → Task 12
+        else if (currentIndex === 11) {
+          setShowConsensusAlignment(true);
+        }
+        // Task zone 12 = Medbay → Task 13
+        else if (currentIndex === 12) {
+          setShowBridgeGuardian(true);
+        }
       }
     }
     eWasPressed.current = ePressed;
@@ -217,7 +256,14 @@ export default function GameCanvas() {
 
     // Task Zones
     taskZones.forEach((t, index) => {
-      ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      const isTaskCompleted = completedTasks["task" + (index + 1)];
+
+      if (isTaskCompleted) {
+        ctx.fillStyle = "#6b7280"; // Grey for completed
+      } else {
+        ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+      }
+
       ctx.fillRect(t.x, t.y, t.width, t.height);
 
       ctx.fillStyle = "#000";
@@ -254,18 +300,22 @@ export default function GameCanvas() {
 
     // Interaction prompt
     if (canInteract && !isAnyTaskOpen) {
-      ctx.fillStyle = "#facc15";
-      ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Press E to interact",
-        player.current.x,
-        player.current.y - player.current.size - 25
-      );
+      const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+
+      if (!isTaskCompleted) {
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 14px 'IBM Plex Sans', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          "Press E to interact",
+          player.current.x,
+          player.current.y - player.current.size - 25
+        );
+      }
     }
 
     ctx.restore();
-  }, [keys, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever]);
+  }, [keys, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever, showNonceFinder, showMempoolCleanup, showConsensusAlignment, showBridgeGuardian]);
 
   useGameLoop(update);
 
@@ -324,6 +374,26 @@ export default function GameCanvas() {
       <ElevatorLeverPopup
         isOpen={showElevatorLever}
         onClose={() => setShowElevatorLever(false)}
+      />
+
+      <NonceFinderPopup
+        isOpen={showNonceFinder}
+        onClose={() => setShowNonceFinder(false)}
+      />
+
+      <MempoolCleanupPopup
+        isOpen={showMempoolCleanup}
+        onClose={() => setShowMempoolCleanup(false)}
+      />
+
+      <ConsensusAlignmentPopup
+        isOpen={showConsensusAlignment}
+        onClose={() => setShowConsensusAlignment(false)}
+      />
+
+      <BridgeGuardianPopup
+        isOpen={showBridgeGuardian}
+        onClose={() => setShowBridgeGuardian(false)}
       />
 
       <div className="text-sm text-muted-foreground">

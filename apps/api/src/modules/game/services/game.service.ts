@@ -150,14 +150,24 @@ export class GameService {
       "Emergency System Hack",
     ];
 
-    // Random task locations (within map bounds)
-    const locations: Array<{ x: number; y: number }> = [];
-    for (let i = 0; i < 50; i++) {
-      locations.push({
-        x: 100 + Math.random() * 2600,
-        y: 100 + Math.random() * 1700,
-      });
-    }
+    // Task locations matching frontend map.ts taskZones
+    const locations = [
+      { x: 450, y: 250 },   // task1 - Cafeteria
+      { x: 950, y: 200 },   // task2 - Weapons
+      { x: 1500, y: 250 },  // task3 - Navigation
+      { x: 2000, y: 250 },  // task4 - Shields
+      { x: 2600, y: 250 },  // task5 - O2
+      { x: 1450, y: 750 },  // task6 - Admin
+      { x: 250, y: 850 },   // task7 - Storage
+      { x: 250, y: 1350 },  // task8 - Electrical
+      { x: 850, y: 1500 },  // task9 - Lower Engine (Elevator)
+      { x: 1300, y: 1450 }, // task10 - Security
+      { x: 1850, y: 1500 }, // task11 - Reactor
+      { x: 2600, y: 850 },  // task12 - Upper Engine
+      { x: 2450, y: 1500 }, // task13 - Medbay
+      { x: 1350, y: 200 },  // task14 - Navigation (extra)
+      { x: 2450, y: 300 },  // task15 - O2 (extra)
+    ];
 
     const tasks: Array<{
       gameId: Types.ObjectId;
@@ -207,7 +217,12 @@ export class GameService {
     playerId: Types.ObjectId,
     taskId: Types.ObjectId,
     points: number = 10
-  ): Promise<{ encryptedWord: string; shouldStartMeeting: boolean }> {
+  ): Promise<{
+    encryptedWord: string;
+    shouldStartMeeting: boolean;
+    taskProgress: number;
+    decryptedPercentage?: number;
+  }> {
     const game = await GameModel.findById(gameId);
     if (!game) {
       throw new Error("Game not found");
@@ -235,53 +250,73 @@ export class GameService {
     task.completedAt = new Date();
     await task.save();
 
-    // Update in-memory state
+    // Calculate global task progress (Encryption Bar)
+    // Always do this even if in-memory state is missing
+    const room = await RoomModel.findById(game.roomId);
+    let currentProgress = game.taskProgress;
+
+    if (room) {
+      const totalCrew = room.players.filter(p => !p.role || p.role === "CREWMATE").length;
+      const tasksPerPlayer = 15;
+      const totalPossibleTasks = Math.max(1, totalCrew) * tasksPerPlayer;
+      const totalCompletedTasks = await TaskModel.countDocuments({
+        gameId,
+        type: "CREW",
+        completed: true
+      });
+
+      logger.info(`Progress: completed=${totalCompletedTasks}, possible=${totalPossibleTasks}, crewCount=${totalCrew}`);
+
+      currentProgress = totalPossibleTasks > 0
+        ? Math.round((totalCompletedTasks / totalPossibleTasks) * 100)
+        : 0;
+
+      game.taskProgress = currentProgress;
+      await game.save();
+    }
+
+    // Update in-memory state if available
     const state = gameStates.get(game.roomId.toString());
-    if (state) {
+    let shouldStartMeeting = false;
+    let encryptedWord = game.encryptedWord;
+
+    if (state && room) {
       state.crewTasksCompleted += 1;
 
       // Check if all crew completed one round
-      const room = await RoomModel.findById(game.roomId);
-      if (room) {
-        const aliveCrew = room.players.filter(
-          (p) => p.role === "CREWMATE" && p.isAlive
-        );
-        const requiredCompletions = aliveCrew.length;
+      const aliveCrew = room.players.filter(
+        (p) => p.role === "CREWMATE" && p.isAlive
+      );
+      const requiredCompletions = aliveCrew.length;
 
-        if (state.crewTasksCompleted >= requiredCompletions) {
-          // Encrypt word by provided percent (default 10%)
-          const pct = points && points > 0 ? points : 10;
-          state.encryptionState = encryptWord(state.encryptionState, pct);
-          state.crewTasksCompleted = 0; // Reset counter
+      if (state.crewTasksCompleted >= requiredCompletions) {
+        // Encrypt word by provided percent (default 10%)
+        const pct = points && points > 0 ? points : 10;
+        state.encryptionState = encryptWord(state.encryptionState, pct);
+        state.crewTasksCompleted = 0; // Reset counter
+        state.encryptionState.decryptedPercentage = currentProgress;
 
-          // Update database
-          game.encryptedWord = state.encryptionState.encryptedWord;
-          await game.save();
+        // Update database
+        game.encryptedWord = state.encryptionState.encryptedWord;
+        await game.save();
 
-          // Log
-          await GameLogModel.create({
-            gameId,
-            type: "TASK_COMPLETED",
-            metadata: { playerId, taskType: "CREW", encryptionTriggered: true },
-          });
+        shouldStartMeeting = true;
+        encryptedWord = state.encryptionState.encryptedWord;
 
-          return {
-            encryptedWord: state.encryptionState.encryptedWord,
-            shouldStartMeeting: true,
-          };
-        }
+        // Log
+        await GameLogModel.create({
+          gameId,
+          type: "TASK_COMPLETED",
+          metadata: { playerId, taskType: "CREW", encryptionTriggered: true, progress: currentProgress },
+        });
       }
     }
 
-    await GameLogModel.create({
-      gameId,
-      type: "TASK_COMPLETED",
-      metadata: { playerId, taskType: "CREW" },
-    });
-
     return {
-      encryptedWord: game.encryptedWord,
-      shouldStartMeeting: false,
+      encryptedWord,
+      shouldStartMeeting,
+      taskProgress: currentProgress,
+      decryptedPercentage: game.decryptedPercentage,
     };
   }
 
@@ -293,7 +328,11 @@ export class GameService {
     playerId: Types.ObjectId,
     taskId: Types.ObjectId,
     points: number = 10
-  ): Promise<{ encryptedWord: string; decryptedPercentage: number }> {
+  ): Promise<{
+    encryptedWord: string;
+    decryptedPercentage: number;
+    taskProgress: number;
+  }> {
     const game = await GameModel.findById(gameId);
     if (!game) {
       throw new Error("Game not found");
@@ -330,13 +369,34 @@ export class GameService {
     task.completedAt = new Date();
     await task.save();
 
+    // Calculate global task progress (Encryption Bar)
+    // Even though this is an imposter task, we need the latest crew progress for the HUD
+    let currentTaskProgress = game.taskProgress;
+    if (room) {
+      const totalCrew = room.players.filter(p => p.role === "CREWMATE").length;
+      const tasksPerPlayer = 15;
+      const totalPossibleTasks = totalCrew * tasksPerPlayer;
+      const totalCompletedTasks = await TaskModel.countDocuments({
+        gameId,
+        type: "CREW",
+        completed: true
+      });
+
+      currentTaskProgress = totalPossibleTasks > 0
+        ? Math.round((totalCompletedTasks / totalPossibleTasks) * 100)
+        : 0;
+
+      game.taskProgress = currentTaskProgress;
+      await game.save();
+    }
+
     // Update in-memory state
     const state = gameStates.get(game.roomId.toString());
     if (state) {
       state.imposterTasksCompleted += 1;
 
-      // Decrypt word by provided percent (default 10%)
-      const pct = points && points > 0 ? points : 10;
+      // Decrypt word by provided percent (default 5% for slower progression)
+      const pct = points && points > 0 ? points : 5;
       state.encryptionState = decryptWord(state.encryptionState, pct);
 
       // Update database
@@ -353,12 +413,14 @@ export class GameService {
       return {
         encryptedWord: state.encryptionState.encryptedWord,
         decryptedPercentage: state.encryptionState.decryptedPercentage,
+        taskProgress: currentTaskProgress,
       };
     }
 
     return {
       encryptedWord: game.encryptedWord,
       decryptedPercentage: game.decryptedPercentage,
+      taskProgress: currentTaskProgress,
     };
   }
 
@@ -488,6 +550,7 @@ export class GameService {
   ): Promise<{
     role: "CREWMATE" | "IMPOSTER";
     encryptedWord?: string;
+    secretWord?: string;
     phase: GamePhase;
     round: number;
   }> {
@@ -510,7 +573,8 @@ export class GameService {
 
     return {
       role,
-      encryptedWord: isImposter ? undefined : game.encryptedWord,
+      encryptedWord: game.encryptedWord,
+      secretWord: !isImposter ? game.secretWord : undefined,
       phase: game.phase,
       round: game.round,
     };

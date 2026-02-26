@@ -95,6 +95,9 @@ export function useLobbySocket() {
             if (data.encryptedWord) {
                 setEncryptedWord(data.encryptedWord);
             }
+            if (data.secretWord) {
+                useGameStore.getState().setSecretWord?.(data.secretWord);
+            }
             // Phase transitions to TASKS when role is assigned
             setPhase("TASKS");
         };

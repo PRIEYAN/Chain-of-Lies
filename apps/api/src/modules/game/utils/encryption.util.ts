@@ -20,11 +20,11 @@ export function encryptWord(
   percentage: number = 10
 ): EncryptionState {
   const { word, encryptedWord, decryptedPercentage } = state;
-  
+
   // Calculate how many characters should be visible
   const targetVisible = Math.max(0, 100 - decryptedPercentage - percentage);
   const targetHidden = 100 - targetVisible;
-  
+
   // Get current visible characters
   const visibleIndices: number[] = [];
   for (let i = 0; i < encryptedWord.length; i++) {
@@ -32,29 +32,29 @@ export function encryptWord(
       visibleIndices.push(i);
     }
   }
-  
+
   // Calculate how many more to hide
   const currentHidden = word.length - visibleIndices.length;
   const needToHide = Math.ceil((targetHidden / 100) * word.length) - currentHidden;
-  
+
   if (needToHide <= 0) {
     return state; // Already encrypted enough
   }
-  
+
   // Randomly select indices to hide (excluding already hidden)
   const availableToHide = visibleIndices.filter(() => Math.random() > 0.3);
   const toHide = availableToHide
     .sort(() => Math.random() - 0.5)
     .slice(0, Math.min(needToHide, availableToHide.length));
-  
+
   // Create new encrypted word
   let newEncryptedWord = encryptedWord.split("");
   toHide.forEach((idx) => {
     newEncryptedWord[idx] = "_";
   });
-  
+
   const newDecryptedPercentage = Math.min(100, decryptedPercentage);
-  
+
   return {
     word,
     encryptedWord: newEncryptedWord.join(""),
@@ -73,13 +73,13 @@ export function decryptWord(
   percentage: number = 10
 ): EncryptionState {
   const { word, encryptedWord, decryptedPercentage } = state;
-  
+
   // Calculate new decrypted percentage
   const newDecryptedPercentage = Math.min(100, decryptedPercentage + percentage);
-  
+
   // Calculate how many characters should be visible
   const targetVisible = Math.ceil((newDecryptedPercentage / 100) * word.length);
-  
+
   // Get currently hidden indices
   const hiddenIndices: number[] = [];
   for (let i = 0; i < encryptedWord.length; i++) {
@@ -87,29 +87,29 @@ export function decryptWord(
       hiddenIndices.push(i);
     }
   }
-  
+
   // Calculate how many to reveal
   const currentVisible = word.length - hiddenIndices.length;
   const needToReveal = targetVisible - currentVisible;
-  
+
   if (needToReveal <= 0) {
     return {
       ...state,
       decryptedPercentage: newDecryptedPercentage,
     };
   }
-  
+
   // Randomly select indices to reveal
   const toReveal = hiddenIndices
     .sort(() => Math.random() - 0.5)
     .slice(0, Math.min(needToReveal, hiddenIndices.length));
-  
+
   // Create new encrypted word
   let newEncryptedWord = encryptedWord.split("");
   toReveal.forEach((idx) => {
     newEncryptedWord[idx] = word[idx];
   });
-  
+
   return {
     word,
     encryptedWord: newEncryptedWord.join(""),
@@ -125,7 +125,7 @@ export function decryptWord(
 export function initializeEncryption(word: string): EncryptionState {
   return {
     word: word.toUpperCase(),
-    encryptedWord: word.toUpperCase(),
+    encryptedWord: "_".repeat(word.length),
     decryptedPercentage: 0,
   };
 }

@@ -10,7 +10,11 @@ export default function ElevatorLeverPopup({
     onClose: () => void;
 }) {
     const TASK_ID = "task9";
-    const { completedTasks, localPlayerId, markTaskCompleted } = useGameStore();
+    const { completedTasks, localPlayerId, markTaskCompleted, players, role } = useGameStore();
+    const localPlayerData = localPlayerId ? players[localPlayerId] : null;
+    const isImposter = role === "IMPOSTER";
+    const accentColor = isImposter ? "#a855f7" : "#00ffff"; // Purple for imposter, Cyan for crew
+    const title = isImposter ? "ELEVATOR OVERRIDE" : "ELEVATOR LEVER";
 
     const [leverPos, setLeverPos] = useState(0); // 0 = top, 1 = bottom
     const [isDragging, setIsDragging] = useState(false);
@@ -37,19 +41,9 @@ export default function ElevatorLeverPopup({
             const deltaTime = time - lastTime.current;
 
             if (leverPos === 1 && !isComplete) {
-                setProgress(prev => {
-                    const newProgress = Math.min(100, prev + (deltaTime / holdTimeRequired) * 100);
-                    if (newProgress === 100 && !isComplete) {
-                        handleComplete();
-                    }
-                    return newProgress;
-                });
+                setProgress(prev => Math.min(100, prev + (deltaTime / holdTimeRequired) * 100));
             } else if (!isComplete) {
-                // If not at bottom, progress slowly decays? Or just stays?
-                // User said: "If released too early, debris remains." 
-                // Let's make it stay where it is for "burn away" effect, 
-                // but the prompt implies it needs to be "continuously held to keep power active".
-                // We'll keep the progress but stop the clearing.
+                // Keep the progress but stop the clearing.
             }
         }
         lastTime.current = time;
@@ -68,11 +62,23 @@ export default function ElevatorLeverPopup({
         };
     }, [isOpen, animate]);
 
+    useEffect(() => {
+        if (progress === 100 && !isComplete && isOpen) {
+            handleComplete();
+        }
+    }, [progress, isComplete, isOpen]);
+
     const handleComplete = () => {
         setIsComplete(true);
         try {
             markTaskCompleted(TASK_ID);
-            socket.emit("task_completed", { taskId: TASK_ID, playerSocketId: localPlayerId, points: 15 });
+            socket.emit("task_completed", {
+                taskId: TASK_ID,
+                playerSocketId: localPlayerId,
+                points: 5,
+                playerX: localPlayerData?.x || 0,
+                playerY: localPlayerData?.y || 0
+            });
         } catch (e) {
             console.warn("task emit failed", e);
         }
@@ -137,6 +143,8 @@ export default function ElevatorLeverPopup({
             <div style={styles.modal}>
                 <button style={styles.closeBtn} onClick={onClose}>✕</button>
 
+                <div style={{ ...styles.title, color: accentColor }}>{title}</div>
+
                 <div style={styles.container}>
                     {/* LEFT SIDE: ELEVATOR */}
                     <div style={styles.elevatorSection}>
@@ -146,7 +154,8 @@ export default function ElevatorLeverPopup({
                                 <div style={{
                                     ...styles.arrow,
                                     opacity: 0.2 + (leverPos * 0.8),
-                                    boxShadow: leverPos === 1 ? "0 0 15px #00ffff" : "none"
+                                    boxShadow: leverPos === 1 ? `0 0 15px ${accentColor}` : "none",
+                                    color: accentColor
                                 }}>↑</div>
                             </div>
 
@@ -202,10 +211,10 @@ export default function ElevatorLeverPopup({
                         <div style={styles.statusLight}>
                             <div style={{
                                 ...styles.lightIndicator,
-                                backgroundColor: isComplete ? '#00ff9d' : (leverPos === 1 ? '#facc15' : '#374151')
+                                backgroundColor: isComplete ? '#00ff9d' : (leverPos === 1 ? accentColor : '#374151')
                             }}></div>
                             <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
-                                {isComplete ? 'READY' : (leverPos === 1 ? 'POWERING' : 'OFF')}
+                                {isComplete ? (isImposter ? 'OVERRIDDEN' : 'READY') : (leverPos === 1 ? (isImposter ? 'DECRYPTING' : 'POWERING') : 'OFF')}
                             </span>
                         </div>
                     </div>
@@ -237,6 +246,16 @@ const styles: Record<string, React.CSSProperties> = {
         position: "relative",
         imageRendering: "pixelated",
         boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+        display: "flex",
+        flexDirection: "column",
+    },
+    title: {
+        fontSize: "18px",
+        fontWeight: "bold",
+        textAlign: "center",
+        marginBottom: "15px",
+        letterSpacing: "4px",
+        textShadow: "0 0 8px rgba(0,0,0,0.5)",
     },
     closeBtn: {
         position: "absolute",

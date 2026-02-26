@@ -15,7 +15,6 @@ import { meetingService } from "../../modules/meeting/services/meeting.service";
 import { voteService } from "../../modules/vote/services/vote.service";
 import { RoomModel } from "../../modules/room/models/room.model";
 import { UserModel } from "../../modules/auth/models/user.model";
-import { Types } from "mongoose";
 
 interface Player {
     id: string;
@@ -60,7 +59,7 @@ function generateColor(): string {
 async function getOrCreateUser(socketId: string, username: string): Promise<Types.ObjectId> {
     // Use socket ID as wallet address for temporary users (prefixed to avoid conflicts)
     const walletAddress = `socket_${socketId}`.toLowerCase();
-    
+
     let user = await UserModel.findOne({ walletAddress });
     if (!user) {
         user = new UserModel({
@@ -70,13 +69,13 @@ async function getOrCreateUser(socketId: string, username: string): Promise<Type
         await user.save();
         logger.info(`Created temporary user for socket ${socketId}: ${user._id}`);
     }
-    
+
     return user._id as Types.ObjectId;
 }
 
 export function initializeSocketIO(httpServer: HTTPServer) {
     console.log("🔧 Initializing Socket.IO server...");
-    
+
     const io = new Server(httpServer, {
         cors: {
             origin: process.env.CLIENT_URL || "http://localhost:3000",
@@ -87,7 +86,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
         transports: ["websocket", "polling"],
         allowEIO3: true,
     });
-    
+
     console.log(`✅ Socket.IO CORS configured for: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
 
     io.on("connection", (socket: Socket) => {
@@ -386,27 +385,31 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     // Create room from party - need to get/create user for host
                     const hostPlayer = party.players[party.hostId];
                     const hostUserId = await getOrCreateUser(party.hostId, hostPlayer.name);
-                    
+
                     room = await roomService.createRoom(
                         hostUserId,
                         hostPlayer.name,
                         party.maxPlayers,
                         party.hostId
                     );
-                    
+
                     // Update socket data with user ID for host
                     (socket as any).data = { ...((socket as any).data || {}), userId: hostUserId.toString() };
+                } // End of if (!room) for creation
+
+                if (!room) {
+                    throw new Error("Failed to find or create room");
                 }
-                
+
                 // Add all players from party to room (if not already added)
                 for (const [socketId, player] of Object.entries(party.players)) {
                     const userId = await getOrCreateUser(socketId, player.name);
-                    
+
                     // Check if player already in room
                     const existingPlayer = room.players.find(
                         (p) => (p.userId as Types.ObjectId).toString() === userId.toString()
                     );
-                    
+
                     if (!existingPlayer) {
                         // Add player to room
                         room.players.push({
@@ -418,14 +421,14 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         // Update socket ID for existing player
                         existingPlayer.socketId = socketId;
                     }
-                    
+
                     // Store user ID in socket data
                     const playerSocket = io.sockets.sockets.get(socketId);
                     if (playerSocket) {
                         (playerSocket as any).data = { ...((playerSocket as any).data || {}), userId: userId.toString() };
                     }
                 }
-                
+
                 // Save room with all players
                 await room.save();
                 logger.info(`Room ${room.roomCode} now has ${room.players.length} players`);
@@ -442,7 +445,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     for (const roomPlayer of roomDoc.players) {
                         const role = roomPlayer.role || "CREWMATE";
                         const socketId = roomPlayer.socketId;
-                        
+
                         // Find socket by socketId (direct lookup)
                         const playerSocket = io.sockets.sockets.get(socketId);
                         if (!playerSocket) {
@@ -452,8 +455,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
                         playerSocket.emit("role_assigned", {
                             role,
-                            encryptedWord: role === "CREWMATE" ? game.encryptedWord : undefined,
-                            secretWord: undefined, // Never send secret word to client
+                            encryptedWord: game.encryptedWord,
+                            secretWord: role === "CREWMATE" ? game.secretWord : undefined,
                         });
 
                         // Emit word update to crewmates
@@ -504,10 +507,10 @@ export function initializeSocketIO(httpServer: HTTPServer) {
             // Throttle broadcasts to reduce network traffic
             const now = Date.now();
             const lastTime = lastBroadcast.get(party.partyCode) || 0;
-            
+
             if (now - lastTime >= BROADCAST_THROTTLE) {
                 lastBroadcast.set(party.partyCode, now);
-                
+
                 // Broadcast to all players in the room
                 io.to(party.partyCode).emit("players_update", {
                     players: party.players,
@@ -531,8 +534,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 }
 
                 const userId = (socket as any).data?.userId || socket.id;
-                const taskId = data.payload?.taskId || data.payload?.id || "unknown";
-                const points = data.payload?.points || data.points || 10;
+                const taskId = (data.payload as any)?.taskId || (data.payload as any)?.id || "unknown";
+                const points = (data.payload as any)?.points || (data as any).points || 10;
 
                 // Get player position from party
                 const player = party.players[socket.id];
@@ -579,6 +582,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         playerSocketId: socket.id,
                         playerName: userDoc?.username || party.players[socket.id]?.name || null,
                         taskName: taskDoc?.name || null,
+                        taskProgress: result.taskProgress || 0,
                     });
                 } catch (err) {
                     io.to(party.partyCode).emit("task_update", {
@@ -614,6 +618,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                                 if (playerSocket) {
                                     playerSocket.emit("word_update", {
                                         encryptedWord: result.encryptedWord,
+                                        taskProgress: result.taskProgress || 0,
                                     });
                                 }
                             }
@@ -656,11 +661,17 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 }
 
                 const points = (data as any).points || 10;
+                const player = party.players[socket.id];
+
+                // Use provided coordinates OR fall back to last known position from server-side state
+                const playerX = data.playerX ?? player?.x ?? 0;
+                const playerY = data.playerY ?? player?.y ?? 0;
+
                 const result = await taskService.completeTask(
                     data.taskId as any,
                     userId as any,
-                    data.playerX || 0,
-                    data.playerY || 0,
+                    playerX,
+                    playerY,
                     points
                 );
 
@@ -682,11 +693,15 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         playerSocketId: socket.id,
                         playerName: userDoc?.username || null,
                         taskName: taskDoc?.name || null,
+                        taskProgress: result.taskProgress || 0,
                     });
                 } catch (err) {
+                    logger.error("Error fetching task/user details for update:", err);
+                    // Still notify about completion at least
                     io.to(party.partyCode).emit("task_update", {
                         taskId: data.taskId,
                         completed: true,
+                        taskProgress: result.taskProgress || 0,
                     });
                 }
 
@@ -694,14 +709,14 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 if (result.shouldStartMeeting) {
                     const room = await RoomModel.findOne({ roomCode: party.partyCode });
                     if (room) {
-                        const game = await gameService.getInMemoryState(room._id);
+                        const game = await gameService.getGameByRoomId(room._id);
                         if (game) {
-                            await gameService.startMeeting(game.gameId);
+                            await gameService.startMeeting(game._id);
                             io.to(party.partyCode).emit("meeting_started", { duration: 60 });
 
                             // Auto-end meeting after 60 seconds
                             setTimeout(async () => {
-                                await gameService.endMeeting(game.gameId);
+                                await gameService.endMeeting(game._id);
                                 io.to(party.partyCode).emit("meeting_ended");
                                 io.to(party.partyCode).emit("voting_started");
                             }, 60000);
@@ -710,34 +725,12 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 }
 
                 // Emit word update if needed
-                if (result.encryptedWord) {
-                    const room = await RoomModel.findOne({ roomCode: party.partyCode });
-                    if (room) {
-                        const roomDoc = await RoomModel.findById(room._id);
-                        if (roomDoc) {
-                            for (const player of roomDoc.players) {
-                                if (player.role === "CREWMATE") {
-                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                                        (s: any) => s.data?.userId === player.userId.toString()
-                                    );
-                                    if (playerSocket) {
-                                        playerSocket.emit("word_update", {
-                                            encryptedWord: result.encryptedWord,
-                                        });
-                                    }
-                                } else if (player.role === "IMPOSTER" && result.decryptedPercentage !== undefined) {
-                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                                        (s: any) => s.data?.userId === player.userId.toString()
-                                    );
-                                    if (playerSocket) {
-                                        playerSocket.emit("word_update", {
-                                            decryptedPercentage: result.decryptedPercentage,
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
+                if (result.encryptedWord !== undefined || result.decryptedPercentage !== undefined) {
+                    io.to(party.partyCode).emit("word_update", {
+                        encryptedWord: result.encryptedWord,
+                        decryptedPercentage: result.decryptedPercentage,
+                        taskProgress: result.taskProgress || 0,
+                    });
                 }
 
                 // Check win conditions
@@ -822,8 +815,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 );
 
                 // Emit to all players in the game
-                const room = await RoomModel.findOne({ 
-                    "players.userId": userId 
+                const room = await RoomModel.findOne({
+                    "players.userId": userId
                 });
                 if (room) {
                     io.to(room.roomCode).emit("meeting_message", {
@@ -929,8 +922,8 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 );
 
                 // Check if all voted (tally happens in service)
-                const room = await RoomModel.findOne({ 
-                    "players.userId": userId 
+                const room = await RoomModel.findOne({
+                    "players.userId": userId
                 });
                 if (room) {
                     const gameDoc = await gameService.getGameByRoomId(room._id);
@@ -998,7 +991,7 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
                 // Start emergency meeting
                 await gameService.startMeeting(game.gameId);
-                io.to(party.partyCode).emit("meeting_started", { 
+                io.to(party.partyCode).emit("meeting_started", {
                     duration: 60,
                     reason: data.reason || "Emergency meeting called",
                 });

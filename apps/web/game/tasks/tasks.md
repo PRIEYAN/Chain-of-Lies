@@ -9,3 +9,7 @@ Task 8: "Color Spin"
 Task 9: "Lower Engine" (elevator debris clearing)
 Task 10:"Nonce Finder"
 Task 11:"Mempool Cleanup"
+Task 12:"Consensus Alignment"
+Task 13:"Bridge Guardian"
+
+
