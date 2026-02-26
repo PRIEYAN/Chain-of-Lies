@@ -26,6 +26,10 @@ import SmartContractQuickFixPopup from "./tasks/task6";
 import ColourPredictionSpinnerPopup from "./tasks/task7";
 import ColorSpinPopup from "./tasks/task8";
 import ElevatorLeverPopup from "./tasks/task9";
+import NonceFinderPopup from "./tasks/task10";
+import MempoolCleanupPopup from "./tasks/task11";
+import ConsensusAlignmentPopup from "./tasks/task12";
+import BridgeGuardianPopup from "./tasks/task13";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -78,6 +82,10 @@ export default function MultiplayerGameCanvas() {
   const [showSpinner, setShowSpinner] = useState(false);
   const [showColorSpin, setShowColorSpin] = useState(false);
   const [showElevatorLever, setShowElevatorLever] = useState(false);
+  const [showNonceFinder, setShowNonceFinder] = useState(false);
+  const [showMempoolCleanup, setShowMempoolCleanup] = useState(false);
+  const [showConsensusAlignment, setShowConsensusAlignment] = useState(false);
+  const [showBridgeGuardian, setShowBridgeGuardian] = useState(false);
 
   const eWasPressed = useRef(false);
 
@@ -102,6 +110,10 @@ export default function MultiplayerGameCanvas() {
         setShowSpinner(false);
         setShowColorSpin(false);
         setShowElevatorLever(false);
+        setShowNonceFinder(false);
+        setShowMempoolCleanup(false);
+        setShowConsensusAlignment(false);
+        setShowBridgeGuardian(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -116,7 +128,7 @@ export default function MultiplayerGameCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever;
+    const isAnyTaskOpen = showPuzzle || showBounce || showGasFee || showMiner || showCatcher || showFix || showSpinner || showColorSpin || showElevatorLever || showNonceFinder || showMempoolCleanup || showConsensusAlignment || showBridgeGuardian;
 
     // -------- LOCAL PLAYER MOVEMENT --------
     // Allow movement only during TASKS phase and if player is alive
@@ -207,29 +219,38 @@ export default function MultiplayerGameCanvas() {
 
       const canInteract = nearTaskIndex !== null;
 
+      const currentIndex = nearTaskIndex;
       const ePressed = !!(keys.current["e"] || keys.current["E"]);
-      if (canInteract && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
-        const isTaskCompleted = completedTasks["task" + (nearTaskIndex + 1)];
+      if (currentIndex !== null && ePressed && !eWasPressed.current && !isAnyTaskOpen) {
+        const isTaskCompleted = completedTasks["task" + (currentIndex + 1)];
 
         if (!isTaskCompleted) {
-          if (nearTaskIndex === 0) {
+          if (currentIndex === 0) {
             setShowPuzzle(true);
-          } else if (nearTaskIndex === 1) {
+          } else if (currentIndex === 1) {
             setShowBounce(true);
-          } else if (nearTaskIndex === 2) {
+          } else if (currentIndex === 2) {
             setShowGasFee(true);
-          } else if (nearTaskIndex === 3) {
+          } else if (currentIndex === 3) {
             setShowMiner(true);
-          } else if (nearTaskIndex === 4) {
+          } else if (currentIndex === 4) {
             setShowCatcher(true);
-          } else if (nearTaskIndex === 5) {
+          } else if (currentIndex === 5) {
             setShowFix(true);
-          } else if (nearTaskIndex === 6) {
+          } else if (currentIndex === 6) {
             setShowSpinner(true);
-          } else if (nearTaskIndex === 7) {
+          } else if (currentIndex === 7) {
             setShowColorSpin(true);
-          } else if (nearTaskIndex === 8) {
+          } else if (currentIndex === 8) {
             setShowElevatorLever(true);
+          } else if (currentIndex === 9) {
+            setShowNonceFinder(true);
+          } else if (currentIndex === 10) {
+            setShowMempoolCleanup(true);
+          } else if (currentIndex === 11) {
+            setShowConsensusAlignment(true);
+          } else if (currentIndex === 12) {
+            setShowBridgeGuardian(true);
           }
         }
       }
@@ -382,7 +403,7 @@ export default function MultiplayerGameCanvas() {
     // 8. Restore context state
     ctx.restore();
 
-  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever]);
+  }, [keys, players, localPlayerId, localPlayerData, updatePlayer, emitPlayerMove, showPuzzle, showBounce, showGasFee, showMiner, showCatcher, showFix, showSpinner, showColorSpin, showElevatorLever, showNonceFinder, showMempoolCleanup, showConsensusAlignment, showBridgeGuardian]);
 
   // Start game loop
   useGameLoop(update);
@@ -443,6 +464,26 @@ export default function MultiplayerGameCanvas() {
         <ElevatorLeverPopup
           isOpen={showElevatorLever}
           onClose={() => setShowElevatorLever(false)}
+        />
+
+        <NonceFinderPopup
+          isOpen={showNonceFinder}
+          onClose={() => setShowNonceFinder(false)}
+        />
+
+        <MempoolCleanupPopup
+          isOpen={showMempoolCleanup}
+          onClose={() => setShowMempoolCleanup(false)}
+        />
+
+        <ConsensusAlignmentPopup
+          isOpen={showConsensusAlignment}
+          onClose={() => setShowConsensusAlignment(false)}
+        />
+
+        <BridgeGuardianPopup
+          isOpen={showBridgeGuardian}
+          onClose={() => setShowBridgeGuardian(false)}
         />
       </div>
 
