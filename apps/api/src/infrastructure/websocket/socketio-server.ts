@@ -15,6 +15,10 @@ import { meetingService } from "../../modules/meeting/services/meeting.service";
 import { voteService } from "../../modules/vote/services/vote.service";
 import { RoomModel } from "../../modules/room/models/room.model";
 import { UserModel } from "../../modules/auth/models/user.model";
+// NEW: Import chat handlers and progress tracking
+import { registerChatHandlers } from "./chat-handlers";
+import { progressService } from "../../modules/progress/services/progress.service";
+import { meetingTriggerService } from "../../modules/meeting/services/meeting-trigger.service";
 
 interface Player {
     id: string;
@@ -92,6 +96,14 @@ export function initializeSocketIO(httpServer: HTTPServer) {
     io.on("connection", (socket: Socket) => {
         console.log(`🔌 New socket connection: ${socket.id}`);
         logger.info(`Socket connected: ${socket.id}`);
+
+        // NEW: Register chat handlers for this socket
+        registerChatHandlers(io, socket, () => {
+            const partyId = socketToParty.get(socket.id);
+            if (!partyId) return undefined;
+            const party = parties.get(partyId);
+            return party?.partyCode;
+        });
 
         // ========================================
         // LOBBY EVENTS
@@ -478,6 +490,20 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     round: game.round || 1,
                 });
 
+                // NEW: Initialize progress tracking for all players
+                try {
+                    for (const player of room.players) {
+                        await progressService.initializePlayerProgress(
+                            game._id,
+                            player.userId as Types.ObjectId,
+                            room.roomCode,
+                            player.role || "CREWMATE"
+                        );
+                    }
+                } catch (progressErr) {
+                    logger.warn("Failed to initialize player progress:", progressErr);
+                }
+
                 logger.info(`Game started in party: ${party.partyCode}`);
             } catch (error: any) {
                 logger.error("Error starting game:", error);
@@ -566,11 +592,15 @@ export function initializeSocketIO(httpServer: HTTPServer) {
 
                 // Fetch task and user info for richer update
                 try {
-                    // resolve task doc by id or name
+                    // resolve task doc by id, taskKey, or name
                     let taskDoc: any = null;
                     try {
                         if (Types.ObjectId.isValid(taskId)) taskDoc = await TaskModel.findById(taskId);
                     } catch (e) { taskDoc = null; }
+                    if (!taskDoc && typeof taskId === 'string') {
+                        // Try by taskKey first (e.g., "task1")
+                        taskDoc = await TaskModel.findOne({ playerId: userId, taskKey: taskId });
+                    }
                     if (!taskDoc && typeof taskId === 'string') {
                         taskDoc = await TaskModel.findOne({ playerId: userId, name: taskId });
                     }
@@ -584,6 +614,21 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         taskName: taskDoc?.name || null,
                         taskProgress: result.taskProgress || 0,
                     });
+
+                    // NEW: Update player progress in MongoDB
+                    if (game?.gameId && userId && taskDoc) {
+                        logger.info(`Updating progress for player ${userId} - task ${taskDoc.name}`);
+                        progressService.updatePlayer(userId, game.gameId, {
+                            taskCompleted: {
+                                taskId: taskDoc._id,
+                                taskName: taskDoc.name,
+                                taskKey: taskDoc.taskKey,
+                                points: points || 0,
+                            },
+                        }).catch(err => logger.warn("Failed to update progress:", err));
+                    } else {
+                        logger.warn(`Progress update skipped: gameId=${game?.gameId}, userId=${userId}, taskDoc=${!!taskDoc}`);
+                    }
                 } catch (err) {
                     io.to(party.partyCode).emit("task_update", {
                         taskId,
@@ -1071,6 +1116,9 @@ export function initializeSocketIO(httpServer: HTTPServer) {
             });
         }
     }
+
+    // NEW: Initialize meeting trigger service with Socket.IO instance
+    meetingTriggerService.initialize(io);
 
     logger.info("Socket.IO server initialized");
     console.log("✅ Socket.IO server ready");
