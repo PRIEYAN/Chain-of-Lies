@@ -110,13 +110,11 @@ export default function Landing() {
                       "hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200",
                     ].join(" ")}
                     onClick={() => {
-                      setWalletConnected((v) => {
-                        const next = !v;
-                        toast({
-                          title: next ? "Wallet connected" : "Wallet disconnected",
-                          description: next ? "Mock connection established." : "Connection closed.",
-                        });
-                        return next;
+                      const next = !walletConnected;
+                      setWalletConnected(next);
+                      toast({
+                        title: next ? "Wallet connected" : "Wallet disconnected",
+                        description: next ? "Mock connection established." : "Connection closed.",
                       });
                     }}
                     data-testid="connect-wallet"

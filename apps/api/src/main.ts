@@ -19,6 +19,7 @@ import { wordbankRoutes } from "./modules/game/routes/wordbank.routes";
 import { taskRoutes } from "./modules/task/routes/task.routes";
 import { meetingRoutes } from "./modules/meeting/routes/meeting.routes";
 import { voteRoutes } from "./modules/vote/routes/vote.routes";
+import progressRoutes from "./modules/progress/routes/progress.routes";
 
 const app = express();
 const httpServer = createServer(app);
@@ -71,6 +72,7 @@ async function initializeRoutes() {
   app.use("/api/task", taskRoutes);
   app.use("/api/meeting", meetingRoutes);
   app.use("/api/vote", voteRoutes);
+  app.use("/api/progress", progressRoutes); // NEW: Player progress tracking
 }
 
 // Initialize server
