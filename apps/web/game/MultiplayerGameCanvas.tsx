@@ -17,6 +17,29 @@ import {
   MAP_WIDTH,
   MAP_HEIGHT,
 } from "./map";
+
+
+import bottomCornerLeftSrc from "../assests/ground/bottomCornerLeft.png";
+import bottomCornerRightSrc from "../assests/ground/bottomCornerRight.png";
+import bottomMidSrc from "../assests/ground/bottomMid.png";
+import centertilesSrc from "../assests/ground/centertiles.png";
+import centertiles1Src from "../assests/ground/centertiles11.png";
+import centertilesNormalSrc from "../assests/ground/centertilesNormal.png";
+import centertilesSpecialSrc from "../assests/ground/centertilesSpecial.png";
+import centertilesSpecial1Src from "../assests/ground/centertilesSpecial1.png";
+import leftsideSrc from "../assests/ground/leftside.png";
+import rightTileSrc from "../assests/ground/rightTile.png";
+import topCornerLeftSrc from "../assests/ground/topCornerLeft.png";
+import topCornerRightSrc from "../assests/ground/topCornerRight.png";
+import topMidSrc from "../assests/ground/TopMid.png";
+
+import taskCompletedSrc from "../assests/obj/taskCompleted.png";
+import taskNotCompletedSrc from "../assests/obj/taskNotCompleted.png";
+
+import fenceLeftSrc from "../assests/collisionObj/left.png";
+import fenceMidSrc from "../assests/collisionObj/mid.png";
+import fenceRightSrc from "../assests/collisionObj/right.png";
+
 import BrokenSequencePopup from "./tasks/task1";
 import BlockBouncePopup from "./tasks/task2";
 import GasFeeRunnerPopup from "./tasks/task3";
@@ -67,6 +90,7 @@ const TASK_ZONE_LABELS = [
 
 export default function MultiplayerGameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const keys = useKeyboard();
 
   const { players, localPlayerId, updatePlayer, phase, isAlive, completedTasks } = useGameStore();
@@ -96,6 +120,113 @@ export default function MultiplayerGameCanvas() {
 
   // Get local player data from store
   const localPlayerData = localPlayerId ? players[localPlayerId] : null;
+
+  const loadedImagesRef = useRef<Record<string, HTMLImageElement>>({});
+
+  // Background init
+  useEffect(() => {
+    const imagesToLoad = [
+      { key: "topMid", src: topMidSrc },
+      { key: "bottomCornerLeft", src: bottomCornerLeftSrc },
+      { key: "bottomCornerRight", src: bottomCornerRightSrc },
+      { key: "bottomMid", src: bottomMidSrc },
+      { key: "centertiles", src: centertilesSrc },
+      { key: "centertiles1", src: centertiles1Src },
+      { key: "centertilesNormal", src: centertilesNormalSrc },
+      { key: "centertilesSpecial", src: centertilesSpecialSrc },
+      { key: "centertilesSpecial1", src: centertilesSpecial1Src },
+      { key: "leftside", src: leftsideSrc },
+      { key: "rightTile", src: rightTileSrc },
+      { key: "topCornerLeft", src: topCornerLeftSrc },
+      { key: "topCornerRight", src: topCornerRightSrc },
+      { key: "taskCompleted", src: taskCompletedSrc },
+      { key: "taskNotCompleted", src: taskNotCompletedSrc },
+      { key: "fenceLeft", src: fenceLeftSrc },
+      { key: "fenceMid", src: fenceMidSrc },
+      { key: "fenceRight", src: fenceRightSrc },
+    ];
+
+    const loadedImages: Record<string, HTMLImageElement> = {};
+    let loadedCount = 0;
+    const totalImages = imagesToLoad.length;
+
+    const onImageLoad = () => {
+      loadedCount++;
+      if (loadedCount === totalImages) {
+        renderBackgroundCanvas();
+      }
+    };
+
+    for (const { key, src } of imagesToLoad) {
+      const img = new Image();
+      img.onload = onImageLoad;
+      img.onerror = onImageLoad;
+      img.src = typeof src === 'string' ? src : (src as any).src || (src as any).default || src;
+      loadedImagesRef.current[key] = img;
+    }
+
+    const isWalkable = (x: number, y: number) => {
+      return (
+        rooms.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height) ||
+        corridors.some((c) => x >= c.x && x < c.x + c.width && y >= c.y && y < c.y + c.height) ||
+        taskZones.some((z) => x >= z.x && x < z.x + z.width && y >= z.y && y < z.y + z.height)
+      );
+    };
+
+    const renderBackgroundCanvas = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = MAP_WIDTH;
+      canvas.height = MAP_HEIGHT;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const TILE_SIZE = 50;
+      const cols = Math.ceil(MAP_WIDTH / TILE_SIZE);
+      const rows = Math.ceil(MAP_HEIGHT / TILE_SIZE);
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const cx = x * TILE_SIZE + TILE_SIZE / 2;
+          const cy = y * TILE_SIZE + TILE_SIZE / 2;
+
+          let imgKey = "centertiles";
+          const rand = Math.random();
+          if (rand < 0.85) imgKey = "centertiles";
+          else if (rand < 0.93) imgKey = "centertiles1";
+          else if (rand < 0.97) imgKey = "centertilesSpecial";
+          else imgKey = "centertilesSpecial1";
+
+          if (isWalkable(cx, cy)) {
+            const topW = isWalkable(cx, cy - TILE_SIZE);
+            const bottomW = isWalkable(cx, cy + TILE_SIZE);
+            const leftW = isWalkable(cx - TILE_SIZE, cy);
+            const rightW = isWalkable(cx + TILE_SIZE, cy);
+
+            if (!topW && !leftW) imgKey = "topCornerLeft";
+            else if (!topW && !rightW) imgKey = "topCornerRight";
+            else if (!bottomW && !leftW) imgKey = "bottomCornerLeft";
+            else if (!bottomW && !rightW) imgKey = "bottomCornerRight";
+            else if (!topW) imgKey = "topMid";
+            else if (!bottomW) imgKey = "bottomMid";
+            else if (!leftW) imgKey = "leftside";
+            else if (!rightW) imgKey = "rightTile";
+            else {
+              imgKey = "centertilesNormal"; // Inside walkable center
+            }
+          }
+
+          const img = loadedImagesRef.current[imgKey];
+          if (img && img.naturalWidth > 0) {
+            ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          } else {
+            ctx.fillStyle = "#111827";
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+      backgroundCanvasRef.current = canvas;
+    };
+  }, []);
 
   // ESC closes any open task
   useEffect(() => {
@@ -155,15 +286,34 @@ export default function MultiplayerGameCanvas() {
 
       if (moved) {
         // INVERSE COLLISION: Check if player is in a walkable area
+        const isPointWalkable = (px: number, py: number) => {
+          return rooms.some((r) => px >= r.x && px <= r.x + r.width && py >= r.y && py <= r.y + r.height) ||
+            corridors.some((c) => px >= c.x && px <= c.x + c.width && py >= c.y && py <= c.y + c.height) ||
+            taskZones.some((z) => px >= z.x && px <= z.x + z.width && py >= z.y && py <= z.y + z.height);
+        };
+
+        const offset = localPlayer.current.size * 0.7;
         const isInWalkableArea =
-          rooms.some((room) => circleRectCollision(nextX, nextY, localPlayer.current.size, room)) ||
-          corridors.some((corridor) => circleRectCollision(nextX, nextY, localPlayer.current.size, corridor)) ||
-          taskZones.some((zone) => circleRectCollision(nextX, nextY, localPlayer.current.size, zone));
+          isPointWalkable(nextX - offset, nextY - offset) &&
+          isPointWalkable(nextX + offset, nextY - offset) &&
+          isPointWalkable(nextX - offset, nextY + offset) &&
+          isPointWalkable(nextX + offset, nextY + offset);
 
         // Check explicit walls
-        const hitExplicitWall = walls.some((wall) =>
-          circleRectCollision(nextX, nextY, localPlayer.current.size, wall)
-        );
+        const hitExplicitWall = walls.some((wall) => {
+          const isOuterWall = wall.x === 0 || wall.y === 0 || wall.x === MAP_WIDTH - wall.width || wall.y === MAP_HEIGHT - wall.height;
+          if (isOuterWall) return circleRectCollision(nextX, nextY, localPlayer.current.size, wall);
+
+          // Thinner collision box for inner fences
+          const isHorizontal = wall.width >= wall.height;
+          let hitBox = wall;
+          if (isHorizontal) {
+            hitBox = { x: wall.x, y: wall.y + wall.height / 2 - 10, width: wall.width, height: 20 };
+          } else {
+            hitBox = { x: wall.x + wall.width / 2 - 10, y: wall.y, width: 20, height: wall.height };
+          }
+          return circleRectCollision(nextX, nextY, localPlayer.current.size, hitBox);
+        });
 
         // Only update position if in walkable area AND not hitting explicit wall
         if (isInWalkableArea && !hitExplicitWall) {
@@ -272,39 +422,72 @@ export default function MultiplayerGameCanvas() {
     // 4. Apply camera translation
     ctx.translate(-cameraX, -cameraY);
 
+    if (backgroundCanvasRef.current) {
+      ctx.drawImage(backgroundCanvasRef.current, 0, 0);
+    }
+
     // 5. Draw world elements
 
-    // Rooms
-    ctx.fillStyle = "#1f2937";
-    rooms.forEach((r) => {
-      ctx.fillRect(r.x, r.y, r.width, r.height);
-    });
-
-    // Corridors
-    ctx.fillStyle = "#1f2937";
-    corridors.forEach((c) => {
-      ctx.fillRect(c.x, c.y, c.width, c.height);
-    });
-
-    // Walls
-    ctx.fillStyle = "#333c4cff";
+    // Fences / Walls
     walls.forEach((w) => {
-      ctx.fillRect(w.x, w.y, w.width, w.height);
+      const isOuterWall = w.x === 0 || w.y === 0 || w.x === MAP_WIDTH - w.width || w.y === MAP_HEIGHT - w.height;
+      if (isOuterWall) return; // Outer walls don't need visual rendering inside the map as they are bounds
+
+      const isHorizontal = w.width >= w.height;
+      const leftImg = loadedImagesRef.current["fenceLeft"];
+      const midImg = loadedImagesRef.current["fenceMid"];
+      const rightImg = loadedImagesRef.current["fenceRight"];
+      const fenceSize = 30; // visually scale the 16x16 to 30px thick
+
+      if (isHorizontal) {
+        const drawY = w.y + w.height / 2 - fenceSize / 2;
+        if (leftImg) ctx.drawImage(leftImg, w.x, drawY, fenceSize, fenceSize);
+        if (rightImg) ctx.drawImage(rightImg, w.x + w.width - fenceSize, drawY, fenceSize, fenceSize);
+        if (midImg) {
+          for (let px = w.x + fenceSize; px < w.x + w.width - fenceSize; px += fenceSize) {
+            const fw = Math.min(fenceSize, (w.x + w.width - fenceSize) - px);
+            ctx.drawImage(midImg, px, drawY, fw, fenceSize);
+          }
+        }
+      } else {
+        ctx.save();
+        const drawX = w.x + w.width / 2 - fenceSize / 2;
+        ctx.translate(drawX + fenceSize / 2, w.y);
+        ctx.rotate(Math.PI / 2); // 90 degrees
+
+        if (leftImg) ctx.drawImage(leftImg, 0, -fenceSize / 2, fenceSize, fenceSize);
+        if (midImg) {
+          for (let px = fenceSize; px < w.height - fenceSize; px += fenceSize) {
+            const fw = Math.min(fenceSize, (w.height - fenceSize) - px);
+            ctx.drawImage(midImg, px, -fenceSize / 2, fw, fenceSize);
+          }
+        }
+        if (rightImg) ctx.drawImage(rightImg, w.height - fenceSize, -fenceSize / 2, fenceSize, fenceSize);
+        ctx.restore();
+      }
     });
 
     // Task Zones
+    const blinkAmount = Math.abs(Math.sin(Date.now() / 300));
+
     taskZones.forEach((t, index) => {
       const isTaskCompleted = completedTasks["task" + (index + 1)];
+      const isNear = nearTaskIndex === index;
 
-      if (isTaskCompleted) {
-        ctx.fillStyle = "#6b7280"; // Grey for completed
+      const imgKey = isTaskCompleted ? "taskCompleted" : "taskNotCompleted";
+
+      const img = loadedImagesRef.current[imgKey];
+
+      if (img && img.naturalWidth > 0) {
+        ctx.globalAlpha = isNear ? 0.6 + (0.4 * blinkAmount) : 1.0;
+        ctx.drawImage(img, t.x, t.y, t.width, t.height);
+        ctx.globalAlpha = 1.0;
       } else {
-        ctx.fillStyle = index === nearTaskIndex ? "#facc15" : "#eab308";
+        ctx.fillStyle = isTaskCompleted ? "#6b7280" : (isNear ? `rgba(234, 179, 8, ${0.4 + 0.3 * blinkAmount})` : "#eab308");
+        ctx.fillRect(t.x, t.y, t.width, t.height);
       }
 
-      ctx.fillRect(t.x, t.y, t.width, t.height);
-
-      ctx.fillStyle = "#000";
+      ctx.fillStyle = "#fff";
       ctx.font = "bold 9px 'IBM Plex Sans', sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(
