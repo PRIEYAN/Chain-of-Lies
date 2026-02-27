@@ -3,7 +3,7 @@
  * 
  * Main game view with real-time player synchronization
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useGameStore } from "@/stores/useGameStore";
 import { useLobbySocket } from "@/hooks/useLobbySocket";
@@ -12,16 +12,26 @@ import MultiplayerGameCanvas from "../../game/MultiplayerGameCanvas";
 import RoleRevealModal from "@/components/game/RoleRevealModal";
 import SecretWordDisplay from "@/components/game/SecretWordDisplay";
 import ImposterTaskPanel from "@/components/game/ImposterTaskPanel";
-import MeetingOverlay from "@/components/game/MeetingOverlay";
+import EmergencyOverlay from "@/components/overlays/EmergencyOverlay";
 import VotingOverlay from "@/components/game/VotingOverlay";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import OnScreenControls from "@/components/game/OnScreenControls";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+
+import bgMusicSrc from "../assests/music/backgroundMusic.mp3";
 
 export default function MultiplayerGamePage() {
   const [, setLocation] = useLocation();
   const { party, players, localPlayerId, phase, imposterId, lastTaskMessage } = useGameStore();
   const { leaveParty } = useLobbySocket();
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = 0.4;
+    }
+  }, []);
   useGameSocket(); // Initialize game socket listeners
 
   // Redirect if not in game (expecting to enter TASKS/MEETING/VOTING/ENDED)
@@ -43,8 +53,9 @@ export default function MultiplayerGamePage() {
   const playersArray = Object.values(players);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="h-[100dvh] md:min-h-screen md:h-auto bg-background overflow-hidden md:overflow-visible relative">
+      <audio ref={audioRef} src={bgMusicSrc} autoPlay loop />
+      <div className="max-w-7xl mx-auto p-0 md:px-4 sm:px-6 lg:px-8 md:py-8 h-full flex flex-col">
         {/* Task completion message */}
         {lastTaskMessage && (
           <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
@@ -54,7 +65,7 @@ export default function MultiplayerGamePage() {
           </div>
         )}
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="hidden md:flex mb-6 items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-1">
               {party.hostName}'s Game
@@ -74,9 +85,9 @@ export default function MultiplayerGamePage() {
         </div>
 
         {/* Game Canvas and Overlays */}
-        <div className="flex justify-center">
+        <div className="flex-1 flex justify-center items-center relative w-full h-full">
           {localPlayerId ? (
-            <div className="relative">
+            <div className="relative w-full h-full flex justify-center items-center">
               <MultiplayerGameCanvas />
               {/* Overlays */}
               <div className="absolute left-4 top-4">
@@ -95,17 +106,18 @@ export default function MultiplayerGamePage() {
         </div>
 
         {/* Game UI Components */}
+        <OnScreenControls />
         <RoleRevealModal />
-        <div className="absolute left-8 top-8 z-40">
+        <div className="absolute top-4 right-4 md:left-8 md:top-8 md:right-auto z-40">
           <SecretWordDisplay />
         </div>
         <ImposterTaskPanel />
-        <MeetingOverlay />
+        <EmergencyOverlay />
         <VotingOverlay />
         <GameEndScreen />
 
         {/* Player List */}
-        <div className="mt-6 max-w-2xl mx-auto">
+        <div className="mt-6 max-w-2xl mx-auto hidden md:block">
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
             <h3 className="text-lg font-semibold mb-3">
               Players ({playersArray.length})
@@ -114,7 +126,7 @@ export default function MultiplayerGamePage() {
               {playersArray.map((player) => {
                 const isImpostor = imposterId && player.id === imposterId;
                 const nameColor = isImpostor ? "text-red-400 font-bold" : "text-white";
-                
+
                 return (
                   <div
                     key={player.id}

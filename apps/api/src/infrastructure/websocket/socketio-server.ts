@@ -644,10 +644,18 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                 if (result.shouldStartMeeting) {
                     await gameService.startMeeting(game.gameId);
                     io.to(party.partyCode).emit("meeting_started", { duration: 60 });
+                    io.to(party.partyCode).emit("EMERGENCY_MEETING", {
+                        meetingId: game.gameId.toString(),
+                        gameId: game.gameId.toString(),
+                        totalTasksCompleted: result.taskProgress || 1,
+                        triggeredAt: new Date().toISOString(),
+                        reason: "task_threshold",
+                    });
 
                     setTimeout(async () => {
                         await gameService.endMeeting(game.gameId);
                         io.to(party.partyCode).emit("meeting_ended");
+                        io.to(party.partyCode).emit("MEETING_ENDED");
                         io.to(party.partyCode).emit("voting_started");
                     }, 60000);
                 }
@@ -758,11 +766,19 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                         if (game) {
                             await gameService.startMeeting(game._id);
                             io.to(party.partyCode).emit("meeting_started", { duration: 60 });
+                            io.to(party.partyCode).emit("EMERGENCY_MEETING", {
+                                meetingId: game._id.toString(),
+                                gameId: game._id.toString(),
+                                totalTasksCompleted: result.taskProgress || 1,
+                                triggeredAt: new Date().toISOString(),
+                                reason: "task_threshold",
+                            });
 
                             // Auto-end meeting after 60 seconds
                             setTimeout(async () => {
                                 await gameService.endMeeting(game._id);
                                 io.to(party.partyCode).emit("meeting_ended");
+                                io.to(party.partyCode).emit("MEETING_ENDED");
                                 io.to(party.partyCode).emit("voting_started");
                             }, 60000);
                         }
@@ -984,15 +1000,28 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                             // Get vote breakdown for imposter
                             const breakdown = await voteService.getVoteBreakdown(gameDoc._id);
                             const roomDoc = await RoomModel.findById(room._id);
+
+                            // The game phase just reset to TASKS. Rotate the word.
+                            const { encryptedWord } = await gameService.changeSecretWord(gameDoc._id);
+
+                            // Emit phase update to everyone so they unblock back to TASKS
+                            io.to(room.roomCode).emit("state_updated", { phase: "TASKS" });
+
                             if (roomDoc) {
                                 for (const player of roomDoc.players) {
-                                    if (player.role === "IMPOSTER") {
-                                        const playerSocket = Array.from(io.sockets.sockets.values()).find(
-                                            (s: any) => s.data?.userId === player.userId.toString()
-                                        );
-                                        if (playerSocket) {
+                                    const playerSocket = Array.from(io.sockets.sockets.values()).find(
+                                        (s: any) => s.data?.userId === player.userId.toString()
+                                    );
+
+                                    if (playerSocket) {
+                                        if (player.role === "IMPOSTER") {
                                             playerSocket.emit("voting_results", {
                                                 voteBreakdown: breakdown,
+                                            });
+                                        } else if (player.role === "CREWMATE") {
+                                            playerSocket.emit("word_update", {
+                                                encryptedWord,
+                                                decryptedPercentage: 0,
                                             });
                                         }
                                     }
@@ -1040,11 +1069,19 @@ export function initializeSocketIO(httpServer: HTTPServer) {
                     duration: 60,
                     reason: data.reason || "Emergency meeting called",
                 });
+                io.to(party.partyCode).emit("EMERGENCY_MEETING", {
+                    meetingId: game.gameId.toString(),
+                    gameId: game.gameId.toString(),
+                    totalTasksCompleted: 0,
+                    triggeredAt: new Date().toISOString(),
+                    reason: data.reason || "Emergency meeting called",
+                });
 
                 // Auto-end meeting after 60 seconds
                 setTimeout(async () => {
                     await gameService.endMeeting(game.gameId);
                     io.to(party.partyCode).emit("meeting_ended");
+                    io.to(party.partyCode).emit("MEETING_ENDED");
                     io.to(party.partyCode).emit("voting_started");
                 }, 60000);
 

@@ -40,6 +40,8 @@ import fenceLeftSrc from "../assests/collisionObj/left.png";
 import fenceMidSrc from "../assests/collisionObj/mid.png";
 import fenceRightSrc from "../assests/collisionObj/right.png";
 
+import playerVideoSrc from "../assests/player/player.webm";
+
 import BrokenSequencePopup from "./tasks/task1";
 import BlockBouncePopup from "./tasks/task2";
 import GasFeeRunnerPopup from "./tasks/task3";
@@ -122,6 +124,7 @@ export default function MultiplayerGameCanvas() {
   const localPlayerData = localPlayerId ? players[localPlayerId] : null;
 
   const loadedImagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const playerVideosRef = useRef<Record<string, { video: HTMLVideoElement; facingLeft: boolean; lastX: number; lastY: number }>>({});
 
   // Background init
   useEffect(() => {
@@ -516,38 +519,72 @@ export default function MultiplayerGameCanvas() {
         }
       }
 
-      // Player circle
-      ctx.fillStyle = player.color;
-      ctx.beginPath();
-      ctx.arc(
-        renderX,
-        renderY,
-        localPlayer.current.size,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-
-      // Glow effect for local player
-      if (isLocal) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = player.color;
-        ctx.beginPath();
-        ctx.arc(
-          renderX,
-          renderY,
-          localPlayer.current.size,
-          0,
-          Math.PI * 2
-        );
-        ctx.fill();
-        ctx.shadowBlur = 0;
+      // Player video avatar
+      let pVideoData = playerVideosRef.current[player.id];
+      if (!pVideoData) {
+        const video = document.createElement("video");
+        video.src = typeof playerVideoSrc === 'string' ? playerVideoSrc : (playerVideoSrc as any).default || playerVideoSrc;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.load();
+        pVideoData = { video, facingLeft: false, lastX: renderX, lastY: renderY };
+        playerVideosRef.current[player.id] = pVideoData;
       }
 
-      // Player border
-      ctx.strokeStyle = isLocal ? "#fff" : "#000";
-      ctx.lineWidth = isLocal ? 3 : 2;
-      ctx.stroke();
+      const isMoving = Math.abs(renderX - pVideoData.lastX) > 0.1 || Math.abs(renderY - pVideoData.lastY) > 0.1;
+
+      if (renderX < pVideoData.lastX - 0.1) pVideoData.facingLeft = true;
+      if (renderX > pVideoData.lastX + 0.1) pVideoData.facingLeft = false;
+
+      pVideoData.lastX = renderX;
+      pVideoData.lastY = renderY;
+
+      if (isMoving) {
+        if (pVideoData.video.paused) {
+          pVideoData.video.play().catch(e => console.error("Video play error", e));
+        }
+      } else {
+        if (!pVideoData.video.paused) {
+          pVideoData.video.pause();
+          pVideoData.video.currentTime = 0;
+        }
+      }
+
+      const videoSize = localPlayer.current.size * 2.8;
+
+      ctx.save();
+      ctx.translate(renderX, renderY);
+
+      if (pVideoData.facingLeft) {
+        ctx.scale(-1, 1);
+      }
+
+      if (pVideoData.video.readyState >= 2) {
+        // Glow effect for local player
+        if (isLocal) {
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = player.color;
+        }
+
+        ctx.drawImage(
+          pVideoData.video,
+          -videoSize / 2,
+          -videoSize / 2,
+          videoSize,
+          videoSize
+        );
+      } else {
+        // Fallback to circle
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, localPlayer.current.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = isLocal ? "#fff" : "#000";
+        ctx.lineWidth = isLocal ? 3 : 2;
+        ctx.stroke();
+      }
+      ctx.restore();
 
       // Player name
       ctx.fillStyle = "#fff";
@@ -592,14 +629,14 @@ export default function MultiplayerGameCanvas() {
   useGameLoop(update);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div style={{ position: "relative", display: "inline-block" }}>
+    <div className="flex flex-col items-center justify-center gap-4 w-full md:w-auto h-full max-h-screen relative p-0 m-0">
+      <div style={{ position: "relative", display: "inline-block" }} className="w-full h-full max-w-[800px] max-h-[500px] flex items-center justify-center">
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
           tabIndex={0}
-          className="border border-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full h-full object-contain aspect-[8/5] border border-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         />
 
         {/* Task 1 — renders its own fixed overlay */}

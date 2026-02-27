@@ -275,33 +275,46 @@ export class GameService {
       await game.save();
     }
 
-    // Update in-memory state if available
+    // Update in-memory state if available for encryption sync
     const state = gameStates.get(game.roomId.toString());
     let shouldStartMeeting = false;
     let encryptedWord = game.encryptedWord;
 
-    if (state && room) {
-      state.crewTasksCompleted += 1;
+    if (room) {
+      if (state) state.crewTasksCompleted += 1;
 
-      // Check if all crew completed one round
+      // Check if 10% of crew completed one round of tasks
       const aliveCrew = room.players.filter(
         (p) => p.role === "CREWMATE" && p.isAlive
       );
-      const requiredCompletions = aliveCrew.length;
+      const requiredCompletions = Math.max(1, Math.ceil(aliveCrew.length * 0.1));
 
-      if (state.crewTasksCompleted >= requiredCompletions) {
-        // Encrypt word by provided percent (default 10%)
+      const totalCompletedTasks = await TaskModel.countDocuments({
+        gameId,
+        type: "CREW",
+        completed: true
+      });
+
+      const tasksSinceLastMeeting = totalCompletedTasks - (game.lastMeetingTaskCount || 0);
+
+      if (tasksSinceLastMeeting >= requiredCompletions) {
+        // Update persistent counter
+        game.lastMeetingTaskCount = totalCompletedTasks;
+
+        // Encrypt word by provided percent (default 10%) if state exists
         const pct = points && points > 0 ? points : 10;
-        state.encryptionState = encryptWord(state.encryptionState, pct);
-        state.crewTasksCompleted = 0; // Reset counter
-        state.encryptionState.decryptedPercentage = currentProgress;
+        if (state) {
+          state.encryptionState = encryptWord(state.encryptionState, pct);
+          state.crewTasksCompleted = 0; // Reset counter
+          state.encryptionState.decryptedPercentage = currentProgress;
+          game.encryptedWord = state.encryptionState.encryptedWord;
+          encryptedWord = state.encryptionState.encryptedWord;
+        }
 
         // Update database
-        game.encryptedWord = state.encryptionState.encryptedWord;
         await game.save();
 
         shouldStartMeeting = true;
-        encryptedWord = state.encryptionState.encryptedWord;
 
         // Log
         await GameLogModel.create({
@@ -578,6 +591,43 @@ export class GameService {
       phase: game.phase,
       round: game.round,
     };
+  }
+
+  /**
+   * Change secret word for the game
+   */
+  async changeSecretWord(gameId: Types.ObjectId): Promise<{ secretWord: string; encryptedWord: string; }> {
+    const game = await GameModel.findById(gameId);
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    // Get random word from wordbank
+    const wordCount = await WordBankModel.countDocuments();
+    if (wordCount === 0) {
+      throw new Error("No words in wordbank.");
+    }
+    const randomIndex = Math.floor(Math.random() * wordCount);
+    const wordDoc = await WordBankModel.findOne().skip(randomIndex);
+    if (!wordDoc) {
+      throw new Error("Failed to get word from wordbank");
+    }
+
+    const secretWord = wordDoc.word;
+    const encryptionState = initializeEncryption(secretWord);
+
+    game.secretWord = secretWord;
+    game.encryptedWord = encryptionState.encryptedWord;
+    game.decryptedPercentage = 0;
+    await game.save();
+
+    // Update in-memory state
+    const state = gameStates.get(game.roomId.toString());
+    if (state) {
+      state.encryptionState = encryptionState;
+    }
+
+    return { secretWord, encryptedWord: game.encryptedWord };
   }
 
   /**

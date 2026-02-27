@@ -14,6 +14,7 @@ export interface IGame extends Document {
   encryptedWord: string;
   decryptedPercentage: number;
   taskProgress: number;
+  lastMeetingTaskCount: number;
   phase: GamePhase;
   round: number;
   meetingStartTime?: Date;
@@ -54,6 +55,10 @@ const gameSchema = new Schema<IGame>(
       default: 0,
       min: 0,
       max: 100,
+    },
+    lastMeetingTaskCount: {
+      type: Number,
+      default: 0,
     },
     phase: {
       type: String,
